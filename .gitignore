@@ -1,0 +1,81 @@
+# Internal planning / Obsidian vault — kept local, not in repo
+docs/
+*.obsidian/
+CLAUDE.md
+.claude/
+
+# .NET
+bin/
+obj/
+out/
+*.user
+*.suo
+*.userprefs
+*.swp
+.vs/
+.vscode/
+.idea/
+*.DotSettings.user
+
+# Build / publish
+[Dd]ebug/
+[Rr]elease/
+[Xx]64/
+[Xx]86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+*.dll
+*.exe
+*.pdb
+*.cache
+publish/
+
+# Test results / coverage
+[Tt]est[Rr]esult*/
+coverage*.json
+coverage*.xml
+coverage*.info
+*.coverage
+*.coveragexml
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+project.lock.json
+project.assets.json
+
+# EF Core
+**/Migrations/*.Designer.cs.bak
+
+# Local storage / runtime data
+storage/
+uploads/
+local-storage/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Secrets / env
+appsettings.Development.json
+appsettings.Local.json
+appsettings.*.local.json
+.env
+.env.*
+!.env.example
+secrets.json
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Docker
+.docker/
