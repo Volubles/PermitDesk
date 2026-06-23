@@ -16,4 +16,6 @@ public class Case
     public string? LantmaterietReferenceNumber { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
+
+    public ICollection<CaseFile> Files { get; set; } = new List<CaseFile>();
 }

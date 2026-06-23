@@ -7,6 +7,7 @@ public class PermitDeskDbContext(DbContextOptions<PermitDeskDbContext> options)
     : DbContext(options)
 {
     public DbSet<Case> Cases => Set<Case>();
+    public DbSet<CaseFile> CaseFiles => Set<CaseFile>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
