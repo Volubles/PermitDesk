@@ -2,4 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/Voluble.PermitDesk.Web/Voluble.PermitDesk.Web.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Voluble.PermitDesk.Tests/Voluble.PermitDesk.Tests.csproj" />
+  </Folder>
 </Solution>

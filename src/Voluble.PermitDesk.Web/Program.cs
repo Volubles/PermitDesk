@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using MudBlazor.Services;
+using Voluble.PermitDesk.Web.Cases;
 using Voluble.PermitDesk.Web.Components;
 using Voluble.PermitDesk.Web.Data;
 
@@ -18,6 +19,8 @@ var connectionString = builder.Configuration.GetConnectionString("PermitDesk")
 
 builder.Services.AddDbContextFactory<PermitDeskDbContext>(options =>
     options.UseNpgsql(connectionString));
+
+builder.Services.AddScoped<CaseNumberGenerator>();
 
 var app = builder.Build();
 
