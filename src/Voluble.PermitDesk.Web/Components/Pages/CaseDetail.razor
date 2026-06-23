@@ -1,0 +1,196 @@
+@page "/cases/{Id:guid}"
+@rendermode InteractiveServer
+@inject IDbContextFactory<PermitDeskDbContext> DbFactory
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+@inject ILogger<CaseDetail> Logger
+@using Microsoft.EntityFrameworkCore
+@using Voluble.PermitDesk.Web.Cases
+@using Voluble.PermitDesk.Web.Components.Shared
+@using Voluble.PermitDesk.Web.Data
+@using Voluble.PermitDesk.Web.Domain
+
+<PageTitle>@(_case?.CaseNumber ?? "Ärende") - PermitDesk</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else if (_case is null)
+{
+    <MudAlert Severity="Severity.Error">Ärendet hittades inte.</MudAlert>
+    <MudButton Variant="Variant.Text" Href="/cases" Class="mt-4">Tillbaka till ärendelistan</MudButton>
+}
+else
+{
+    <MudStack Spacing="4">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/cases" />
+            <MudText Typo="Typo.h4">@_case.CaseNumber</MudText>
+        </MudStack>
+
+        <MudPaper Class="pa-6" Elevation="0" Outlined="true">
+            <MudGrid>
+                <MudItem xs="12" md="8">
+                    <MudText Typo="Typo.h5">@_case.Title</MudText>
+                    <MudText Typo="Typo.body1" Color="Color.Secondary">
+                        @_case.Address@(string.IsNullOrWhiteSpace(_case.Municipality) ? "" : $", {_case.Municipality}")
+                    </MudText>
+                </MudItem>
+                <MudItem xs="12" md="4" Class="d-flex justify-end align-center">
+                    <PublicationBadge Status="_case.PublicationStatus" Size="Size.Medium" Filled="true" />
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                <MudPaper Class="pa-6" Elevation="0" Outlined="true">
+                    <MudText Typo="Typo.h6" Class="mb-4">Status</MudText>
+                    <MudSelect T="CaseStatus"
+                               Value="_case.Status"
+                               ValueChanged="OnStatusChanged"
+                               Label="Ärendestatus"
+                               Variant="Variant.Outlined"
+                               Disabled="_saving">
+                        @foreach (var status in Enum.GetValues<CaseStatus>())
+                        {
+                            <MudSelectItem Value="status">@StatusLabel(status)</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2 d-block">
+                        Senast uppdaterad @_case.UpdatedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm")
+                    </MudText>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudPaper Class="pa-6" Elevation="0" Outlined="true">
+                    <MudText Typo="Typo.h6" Class="mb-4">Kontaktuppgifter</MudText>
+                    <MudStack Spacing="2">
+                        <DetailRow Label="Mäklare" Value="@_case.BrokerName" />
+                        <DetailRow Label="Fotograf" Value="@_case.PhotographerName" />
+                        <DetailRow Label="E-post" Value="@_case.ContactEmail" />
+                        <DetailRow Label="Telefon" Value="@_case.ContactPhone" />
+                        <DetailRow Label="Lantmäteriets ref." Value="@_case.LantmaterietReferenceNumber" />
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <MudPaper Class="pa-6" Elevation="0" Outlined="true">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                <MudStack Spacing="0">
+                    <MudText Typo="Typo.h6">Lokal mapp</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Style="font-family: monospace;">
+                        @(_case.LocalFolderPath ?? "(ingen mapp registrerad)")
+                    </MudText>
+                </MudStack>
+                @if (!string.IsNullOrWhiteSpace(_case.LocalFolderPath))
+                {
+                    <MudTooltip Text="Kopiera sökväg">
+                        <MudIconButton Icon="@Icons.Material.Filled.ContentCopy"
+                                       OnClick="CopyFolderPath" />
+                    </MudTooltip>
+                }
+            </MudStack>
+        </MudPaper>
+
+        <MudPaper Class="pa-6" Elevation="0" Outlined="true">
+            <MudText Typo="Typo.h6" Class="mb-2">Filer</MudText>
+            @if (_case.Files.Count == 0)
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    Inga filer uppladdade ännu. Drag-and-drop uppladdning kommer i nästa iteration.
+                </MudText>
+            }
+            else
+            {
+                <MudList T="CaseFile" Dense="true">
+                    @foreach (var f in _case.Files)
+                    {
+                        <MudListItem T="CaseFile" Icon="@Icons.Material.Filled.InsertDriveFile">
+                            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                <span>@f.FileName</span>
+                                <MudChip T="string" Size="Size.Small">@f.Category</MudChip>
+                            </MudStack>
+                        </MudListItem>
+                    }
+                </MudList>
+            }
+        </MudPaper>
+    </MudStack>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private Case? _case;
+    private bool _loading = true;
+    private bool _saving;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        _case = await db.Cases
+            .Include(c => c.Files)
+            .FirstOrDefaultAsync(c => c.Id == Id);
+        _loading = false;
+    }
+
+    private async Task OnStatusChanged(CaseStatus newStatus)
+    {
+        if (_case is null || _case.Status == newStatus) return;
+
+        _saving = true;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var entity = await db.Cases
+                .Include(c => c.Files)
+                .FirstAsync(c => c.Id == _case.Id);
+
+            entity.Status = newStatus;
+            entity.PublicationStatus = PublicationEligibility.Evaluate(entity, entity.Files.ToList());
+            entity.UpdatedAt = DateTimeOffset.UtcNow;
+
+            await db.SaveChangesAsync();
+
+            _case.Status = entity.Status;
+            _case.PublicationStatus = entity.PublicationStatus;
+            _case.UpdatedAt = entity.UpdatedAt;
+
+            Snackbar.Add($"Status uppdaterad till {StatusLabel(newStatus)}", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to update case status");
+            Snackbar.Add($"Kunde inte uppdatera status: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task CopyFolderPath()
+    {
+        if (string.IsNullOrWhiteSpace(_case?.LocalFolderPath)) return;
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", _case.LocalFolderPath);
+        Snackbar.Add("Sökväg kopierad", Severity.Info);
+    }
+
+    private static string StatusLabel(CaseStatus status) => status switch
+    {
+        CaseStatus.Draft => "Utkast",
+        CaseStatus.MaterialMissing => "Material saknas",
+        CaseStatus.MaterialReady => "Material klart",
+        CaseStatus.ApplicationSubmitted => "Ansökan skickad",
+        CaseStatus.WaitingForDecision => "Väntar på beslut",
+        CaseStatus.Approved => "Godkänt",
+        CaseStatus.Rejected => "Avslag",
+        CaseStatus.ManualReviewRequired => "Kräver manuell kontroll",
+        _ => status.ToString(),
+    };
+}
