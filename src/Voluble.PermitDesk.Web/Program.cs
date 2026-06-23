@@ -3,6 +3,7 @@ using MudBlazor.Services;
 using Voluble.PermitDesk.Web.Cases;
 using Voluble.PermitDesk.Web.Components;
 using Voluble.PermitDesk.Web.Data;
+using Voluble.PermitDesk.Web.Files;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,6 +22,10 @@ builder.Services.AddDbContextFactory<PermitDeskDbContext>(options =>
     options.UseNpgsql(connectionString));
 
 builder.Services.AddScoped<CaseNumberGenerator>();
+
+builder.Services.Configure<LocalStorageOptions>(
+    builder.Configuration.GetSection(LocalStorageOptions.SectionName));
+builder.Services.AddScoped<ICaseStorage, LocalCaseStorage>();
 
 var app = builder.Build();
 

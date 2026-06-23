@@ -43,9 +43,16 @@ Requires .NET 10 SDK and a running PostgreSQL.
    {
      "ConnectionStrings": {
        "PermitDesk": "Host=localhost;Port=5432;Database=permitdesk_dev;Username=permitdesk;Password=permitdesk"
+     },
+     "Storage": {
+       "Local": {
+         "Root": "C:\\path\\to\\local\\storage"
+       }
      }
    }
    ```
+
+   `Storage:Local:Root` is where case folders are created on disk. Pick any absolute path; it'll be created on first use.
 
 3. Apply migrations and run:
 

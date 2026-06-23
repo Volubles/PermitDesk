@@ -17,5 +17,7 @@ public class Case
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 
+    public string? LocalFolderPath { get; set; }
+
     public ICollection<CaseFile> Files { get; set; } = new List<CaseFile>();
 }

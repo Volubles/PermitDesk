@@ -57,6 +57,10 @@ namespace Voluble.PermitDesk.Web.Data.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
 
+                    b.Property<string>("LocalFolderPath")
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)");
+
                     b.Property<string>("Municipality")
                         .IsRequired()
                         .HasMaxLength(128)
