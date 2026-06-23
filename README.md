@@ -24,7 +24,36 @@ Later: Microsoft Graph (storage + mailbox), Playwright (Lantmäteriet form autom
 
 ## Status
 
-Pre-MVP. See open issues and the project board for current work.
+Pre-MVP. See open issues for current work.
+
+## Run locally
+
+Requires .NET 10 SDK and a running PostgreSQL.
+
+1. Create the database and role (one-time):
+
+   ```sh
+   psql -U postgres -c "CREATE ROLE permitdesk WITH LOGIN PASSWORD 'permitdesk';"
+   psql -U postgres -c "CREATE DATABASE permitdesk_dev OWNER permitdesk;"
+   ```
+
+2. Create `src/Voluble.PermitDesk.Web/appsettings.Local.json` (gitignored) with the connection string:
+
+   ```json
+   {
+     "ConnectionStrings": {
+       "PermitDesk": "Host=localhost;Port=5432;Database=permitdesk_dev;Username=permitdesk;Password=permitdesk"
+     }
+   }
+   ```
+
+3. Apply migrations and run:
+
+   ```sh
+   cd src/Voluble.PermitDesk.Web
+   dotnet ef database update
+   dotnet run
+   ```
 
 ## Repo conventions
 
