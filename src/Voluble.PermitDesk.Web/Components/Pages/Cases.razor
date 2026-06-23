@@ -43,7 +43,12 @@
     }
     else
     {
-        <MudTable Items="_cases" Hover="true" Dense="true" Striped="true">
+        <MudTable Items="_cases"
+                  Hover="true"
+                  Dense="true"
+                  Striped="true"
+                  OnRowClick="OnRowClick"
+                  T="Case">
             <HeaderContent>
                 <MudTh>Ärende</MudTh>
                 <MudTh>Adress</MudTh>
@@ -64,10 +69,10 @@
                     <PublicationBadge Status="context.PublicationStatus" ShortLabel="true" />
                 </MudTd>
                 <MudTd DataLabel="Uppdaterad">@context.UpdatedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm")</MudTd>
-                <MudTd>
+                <MudTd Style="text-align: right;">
                     <MudIconButton Icon="@Icons.Material.Filled.OpenInNew"
                                    Size="Size.Small"
-                                   OnClick="@(() => Nav.NavigateTo($"/cases/{context.Id}"))" />
+                                   Href="@($"/cases/{context.Id}")" />
                 </MudTd>
             </RowTemplate>
         </MudTable>
@@ -86,6 +91,12 @@
             .OrderByDescending(c => c.UpdatedAt)
             .ToListAsync();
         _loading = false;
+    }
+
+    private void OnRowClick(TableRowClickEventArgs<Case> args)
+    {
+        if (args.Item is null) return;
+        Nav.NavigateTo($"/cases/{args.Item.Id}");
     }
 
     private static Color StatusColor(CaseStatus status) => status switch
