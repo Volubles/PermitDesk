@@ -120,7 +120,6 @@ else
             </MudStack>
 
             <MudFileUpload T="IReadOnlyList<IBrowserFile>"
-                           @ref="_fileUpload"
                            OnFilesChanged="OnFilesSelected"
                            AppendMultipleFiles="true"
                            MaximumFileCount="100" />
@@ -183,7 +182,6 @@ else
     private int _uploadingCurrent;
     private int _uploadingTotal;
     private CaseFileCategory _uploadCategory = CaseFileCategory.Material;
-    private MudFileUpload<IReadOnlyList<IBrowserFile>>? _fileUpload;
     private const long MaxFileBytes = 5L * 1024 * 1024 * 1024;
 
     protected override async Task OnInitializedAsync()
@@ -235,6 +233,8 @@ else
         if (_case is null) return;
 
         var files = e.GetMultipleFiles(maximumFileCount: 100);
+        if (files.Count == 0) return;
+
         _uploading = true;
         _uploadingTotal = files.Count;
         _uploadingCurrent = 0;
@@ -243,10 +243,13 @@ else
         try
         {
             await using var db = await DbFactory.CreateDbContextAsync();
-            var entity = await db.Cases
-                .Include(c => c.Files)
-                .FirstAsync(c => c.Id == _case.Id);
 
+            // Load Case without Files. We add new CaseFile rows via the DbSet
+            // directly so EF tracks them as Added; using entity.Files.Add()
+            // can confuse change detection into treating new rows as Modified.
+            var entity = await db.Cases.FirstAsync(c => c.Id == _case.Id);
+
+            var newFiles = new List<CaseFile>(files.Count);
             foreach (var file in files)
             {
                 _uploadingCurrent++;
@@ -255,7 +258,7 @@ else
                 await using var stream = file.OpenReadStream(MaxFileBytes);
                 var saved = await Storage.SaveFileAsync(entity, _uploadCategory, file.Name, stream);
 
-                entity.Files.Add(new CaseFile
+                var record = new CaseFile
                 {
                     Id = Guid.NewGuid(),
                     CaseId = entity.Id,
@@ -269,7 +272,9 @@ else
                     StorageProvider = "local",
                     LocalPath = saved.LocalPath,
                     UploadedAt = DateTimeOffset.UtcNow,
-                });
+                };
+                db.CaseFiles.Add(record);
+                newFiles.Add(record);
             }
 
             // Auto-transition: first Material file unblocks MaterialMissing.
@@ -279,16 +284,26 @@ else
                 entity.Status = CaseStatus.MaterialReady;
             }
 
-            entity.PublicationStatus = PublicationEligibility.Evaluate(entity, entity.Files.ToList());
+            // Re-evaluate publication eligibility using existing files in the DB
+            // plus the ones we just added (still pending insert).
+            var existingFiles = await db.CaseFiles
+                .AsNoTracking()
+                .Where(f => f.CaseId == entity.Id)
+                .ToListAsync();
+            var allFiles = existingFiles.Concat(newFiles).ToList();
+
+            entity.PublicationStatus = PublicationEligibility.Evaluate(entity, allFiles);
             entity.UpdatedAt = DateTimeOffset.UtcNow;
 
             await db.SaveChangesAsync();
 
-            _case = entity;
-            Snackbar.Add($"{files.Count} fil(er) uppladdade", Severity.Success);
+            // Reload fresh, detached, for the UI.
+            _case = await db.Cases
+                .AsNoTracking()
+                .Include(c => c.Files)
+                .FirstAsync(c => c.Id == entity.Id);
 
-            if (_fileUpload is not null)
-                await _fileUpload.ClearAsync();
+            Snackbar.Add($"{files.Count} fil(er) uppladdade", Severity.Success);
         }
         catch (Exception ex)
         {
