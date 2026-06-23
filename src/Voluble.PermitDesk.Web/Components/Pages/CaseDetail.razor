@@ -4,12 +4,15 @@
 @inject NavigationManager Nav
 @inject ISnackbar Snackbar
 @inject IJSRuntime JS
+@inject ICaseStorage Storage
 @inject ILogger<CaseDetail> Logger
+@using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.EntityFrameworkCore
 @using Voluble.PermitDesk.Web.Cases
 @using Voluble.PermitDesk.Web.Components.Shared
 @using Voluble.PermitDesk.Web.Data
 @using Voluble.PermitDesk.Web.Domain
+@using Voluble.PermitDesk.Web.Files
 
 <PageTitle>@(_case?.CaseNumber ?? "Ärende") - PermitDesk</PageTitle>
 
@@ -98,26 +101,74 @@ else
         </MudPaper>
 
         <MudPaper Class="pa-6" Elevation="0" Outlined="true">
+            <MudText Typo="Typo.h6" Class="mb-4">Ladda upp filer</MudText>
+
+            <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Class="mb-3">
+                <MudSelect T="CaseFileCategory"
+                           @bind-Value="_uploadCategory"
+                           Label="Kategori"
+                           Variant="Variant.Outlined"
+                           Style="max-width: 280px;"
+                           Disabled="_uploading">
+                    @foreach (var cat in Enum.GetValues<CaseFileCategory>())
+                    {
+                        <MudSelectItem Value="cat">@CategoryLabel(cat)</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                    Filer landar i @CaseFolderLayout.SubFolderFor(_uploadCategory)/
+                </MudText>
+            </MudStack>
+
+            <MudFileUpload T="IReadOnlyList<IBrowserFile>"
+                           @ref="_fileUpload"
+                           OnFilesChanged="OnFilesSelected"
+                           AppendMultipleFiles="true"
+                           MaximumFileCount="100" />
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2 d-block">
+                Dra in flera filer eller klicka för att välja. Stora drönarfiler stöds.
+            </MudText>
+
+            @if (_uploading)
+            {
+                <MudProgressLinear Indeterminate="true" Class="mt-3" />
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1 d-block">
+                    Laddar upp @_uploadingCurrent / @_uploadingTotal …
+                </MudText>
+            }
+        </MudPaper>
+
+        <MudPaper Class="pa-6" Elevation="0" Outlined="true">
             <MudText Typo="Typo.h6" Class="mb-2">Filer</MudText>
             @if (_case.Files.Count == 0)
             {
                 <MudText Typo="Typo.body2" Color="Color.Secondary">
-                    Inga filer uppladdade ännu. Drag-and-drop uppladdning kommer i nästa iteration.
+                    Inga filer uppladdade ännu.
                 </MudText>
             }
             else
             {
-                <MudList T="CaseFile" Dense="true">
-                    @foreach (var f in _case.Files)
-                    {
-                        <MudListItem T="CaseFile" Icon="@Icons.Material.Filled.InsertDriveFile">
-                            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-                                <span>@f.FileName</span>
-                                <MudChip T="string" Size="Size.Small">@f.Category</MudChip>
+                <MudTable Items="@_case.Files.OrderByDescending(f => f.UploadedAt)" Dense="true" Hover="true">
+                    <HeaderContent>
+                        <MudTh>Filnamn</MudTh>
+                        <MudTh>Kategori</MudTh>
+                        <MudTh Style="text-align: right;">Storlek</MudTh>
+                        <MudTh>Uppladdad</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Filnamn">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <MudIcon Icon="@Icons.Material.Filled.InsertDriveFile" Size="Size.Small" />
+                                <span>@context.FileName</span>
                             </MudStack>
-                        </MudListItem>
-                    }
-                </MudList>
+                        </MudTd>
+                        <MudTd DataLabel="Kategori">
+                            <MudChip T="string" Size="Size.Small">@CategoryLabel(context.Category)</MudChip>
+                        </MudTd>
+                        <MudTd DataLabel="Storlek" Style="text-align: right;">@FormatSize(context.SizeBytes)</MudTd>
+                        <MudTd DataLabel="Uppladdad">@context.UploadedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm")</MudTd>
+                    </RowTemplate>
+                </MudTable>
             }
         </MudPaper>
     </MudStack>
@@ -129,6 +180,12 @@ else
     private Case? _case;
     private bool _loading = true;
     private bool _saving;
+    private bool _uploading;
+    private int _uploadingCurrent;
+    private int _uploadingTotal;
+    private CaseFileCategory _uploadCategory = CaseFileCategory.Material;
+    private MudFileUpload<IReadOnlyList<IBrowserFile>>? _fileUpload;
+    private const long MaxFileBytes = 5L * 1024 * 1024 * 1024;
 
     protected override async Task OnInitializedAsync()
     {
@@ -172,6 +229,102 @@ else
         {
             _saving = false;
         }
+    }
+
+    private async Task OnFilesSelected(InputFileChangeEventArgs e)
+    {
+        if (_case is null) return;
+
+        var files = e.GetMultipleFiles(maximumFileCount: 100);
+        _uploading = true;
+        _uploadingTotal = files.Count;
+        _uploadingCurrent = 0;
+        StateHasChanged();
+
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var entity = await db.Cases
+                .Include(c => c.Files)
+                .FirstAsync(c => c.Id == _case.Id);
+
+            foreach (var file in files)
+            {
+                _uploadingCurrent++;
+                StateHasChanged();
+
+                await using var stream = file.OpenReadStream(MaxFileBytes);
+                var saved = await Storage.SaveFileAsync(entity, _uploadCategory, file.Name, stream);
+
+                entity.Files.Add(new CaseFile
+                {
+                    Id = Guid.NewGuid(),
+                    CaseId = entity.Id,
+                    FileName = Path.GetFileName(saved.LocalPath),
+                    FileExtension = Path.GetExtension(saved.LocalPath),
+                    ContentType = string.IsNullOrWhiteSpace(file.ContentType)
+                        ? "application/octet-stream"
+                        : file.ContentType,
+                    SizeBytes = saved.SizeBytes,
+                    Category = _uploadCategory,
+                    StorageProvider = "local",
+                    LocalPath = saved.LocalPath,
+                    UploadedAt = DateTimeOffset.UtcNow,
+                });
+            }
+
+            // Auto-transition: first Material file unblocks MaterialMissing.
+            if (_uploadCategory == CaseFileCategory.Material
+                && entity.Status == CaseStatus.MaterialMissing)
+            {
+                entity.Status = CaseStatus.MaterialReady;
+            }
+
+            entity.PublicationStatus = PublicationEligibility.Evaluate(entity, entity.Files.ToList());
+            entity.UpdatedAt = DateTimeOffset.UtcNow;
+
+            await db.SaveChangesAsync();
+
+            _case = entity;
+            Snackbar.Add($"{files.Count} fil(er) uppladdade", Severity.Success);
+
+            if (_fileUpload is not null)
+                await _fileUpload.ClearAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to upload files");
+            Snackbar.Add($"Uppladdning misslyckades: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _uploading = false;
+            _uploadingCurrent = 0;
+            _uploadingTotal = 0;
+        }
+    }
+
+    private static string CategoryLabel(CaseFileCategory category) => category switch
+    {
+        CaseFileCategory.Material => "Material",
+        CaseFileCategory.Application => "Ansökan",
+        CaseFileCategory.SubmissionConfirmation => "Inskickningsbekräftelse",
+        CaseFileCategory.Decision => "Beslut",
+        CaseFileCategory.Other => "Övrigt",
+        _ => category.ToString(),
+    };
+
+    private static string FormatSize(long bytes)
+    {
+        string[] units = ["B", "KB", "MB", "GB", "TB"];
+        double size = bytes;
+        var u = 0;
+        while (size >= 1024 && u < units.Length - 1)
+        {
+            size /= 1024;
+            u++;
+        }
+        return $"{size:0.#} {units[u]}";
     }
 
     private async Task CopyFolderPath()

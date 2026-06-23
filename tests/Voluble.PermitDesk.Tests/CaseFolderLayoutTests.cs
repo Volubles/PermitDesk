@@ -33,6 +33,24 @@ public class CaseFolderLayoutTests
         Assert.Equal("Untitled", CaseFolderLayout.SanitizeFolderName(input));
     }
 
+    [Theory]
+    [InlineData("DJI_0001.jpg", "DJI_0001.jpg")]
+    [InlineData("My\\drone/photo:final.MP4", "My_drone_photo_final.MP4")]
+    [InlineData("Åsa Östermans drönarbild.jpg", "Åsa Östermans drönarbild.jpg")]
+    [InlineData("trailing space .pdf", "trailing space .pdf")]
+    public void SanitizeFileName_replaces_invalid_chars(string input, string expected)
+    {
+        Assert.Equal(expected, CaseFolderLayout.SanitizeFileName(input));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void SanitizeFileName_falls_back_to_untitled(string input)
+    {
+        Assert.Equal("untitled", CaseFolderLayout.SanitizeFileName(input));
+    }
+
     [Fact]
     public void SubFolderFor_maps_each_category()
     {

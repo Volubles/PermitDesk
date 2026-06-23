@@ -25,4 +25,43 @@ public class LocalCaseStorage(IOptions<LocalStorageOptions> options) : ICaseStor
 
         return Task.FromResult(casePath);
     }
+
+    public async Task<SavedCaseFile> SaveFileAsync(
+        Case caseEntity,
+        CaseFileCategory category,
+        string fileName,
+        Stream content,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(caseEntity.LocalFolderPath))
+        {
+            throw new InvalidOperationException(
+                $"Case {caseEntity.CaseNumber} has no LocalFolderPath; cannot save files.");
+        }
+
+        var subFolder = CaseFolderLayout.SubFolderFor(category);
+        var targetDir = Path.Combine(caseEntity.LocalFolderPath, subFolder);
+        Directory.CreateDirectory(targetDir);
+
+        var safeName = CaseFolderLayout.SanitizeFileName(fileName);
+        var targetPath = Path.Combine(targetDir, safeName);
+
+        if (File.Exists(targetPath))
+        {
+            var nameOnly = Path.GetFileNameWithoutExtension(safeName);
+            var ext = Path.GetExtension(safeName);
+            var n = 1;
+            do
+            {
+                targetPath = Path.Combine(targetDir, $"{nameOnly} ({n}){ext}");
+                n++;
+            } while (File.Exists(targetPath));
+        }
+
+        await using var fs = File.Create(targetPath);
+        await content.CopyToAsync(fs, ct);
+        var size = fs.Position;
+
+        return new SavedCaseFile(targetPath, size);
+    }
 }

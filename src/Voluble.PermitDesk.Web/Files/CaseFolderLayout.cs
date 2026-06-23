@@ -27,6 +27,22 @@ public static class CaseFolderLayout
         _ => Other,
     };
 
+    public static string SanitizeFileName(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            return "untitled";
+
+        var invalid = Path.GetInvalidFileNameChars();
+        var chars = new char[input.Length];
+        var i = 0;
+        foreach (var c in input)
+        {
+            chars[i++] = invalid.Contains(c) || c == '\r' || c == '\n' || c == '\t' ? '_' : c;
+        }
+        var sanitized = new string(chars, 0, i).Trim();
+        return string.IsNullOrEmpty(sanitized) ? "untitled" : sanitized;
+    }
+
     public static string SanitizeFolderName(string input)
     {
         if (string.IsNullOrWhiteSpace(input))
