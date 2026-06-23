@@ -25,6 +25,9 @@ public class CaseFileConfiguration : IEntityTypeConfiguration<CaseFile>
         builder.Property(f => f.StorageWebUrl).HasMaxLength(2048);
         builder.Property(f => f.LocalPath).HasMaxLength(1024);
         builder.Property(f => f.UploadedBy).HasMaxLength(256);
+        builder.Property(f => f.DeletedBy).HasMaxLength(256);
+
+        builder.HasIndex(f => f.DeletedAt);
 
         builder.Property(f => f.Category)
             .HasConversion<string>()

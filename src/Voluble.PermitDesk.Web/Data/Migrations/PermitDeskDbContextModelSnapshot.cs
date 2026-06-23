@@ -115,6 +115,13 @@ namespace Voluble.PermitDesk.Web.Data.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
 
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
                     b.Property<string>("FileExtension")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -155,6 +162,8 @@ namespace Voluble.PermitDesk.Web.Data.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CaseId");
+
+                    b.HasIndex("DeletedAt");
 
                     b.ToTable("CaseFiles");
                 });

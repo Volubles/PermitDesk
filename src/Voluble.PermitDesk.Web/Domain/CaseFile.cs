@@ -20,4 +20,7 @@ public class CaseFile
 
     public string? UploadedBy { get; set; }
     public DateTimeOffset UploadedAt { get; set; }
+
+    public DateTimeOffset? DeletedAt { get; set; }
+    public string? DeletedBy { get; set; }
 }

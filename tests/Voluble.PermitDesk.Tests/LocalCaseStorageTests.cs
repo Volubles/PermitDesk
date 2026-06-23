@@ -42,6 +42,70 @@ public class LocalCaseStorageTests : IDisposable
     }
 
     [Fact]
+    public async Task DeleteFileAsync_removes_existing_file_from_disk()
+    {
+        var c = NewCase("FBO-2026-0010", "Test", year: 2026);
+        await _storage.CreateCaseFolderAsync(c);
+        c.LocalFolderPath = Path.Combine(_tempRoot, "2026", "FBO-2026-0010 - Test");
+
+        await using (var stream = new MemoryStream(new byte[] { 1, 2, 3, 4 }))
+        {
+            var saved = await _storage.SaveFileAsync(c, CaseFileCategory.Material, "test.dat", stream);
+
+            var fileRow = new CaseFile
+            {
+                Id = Guid.NewGuid(),
+                FileName = Path.GetFileName(saved.LocalPath),
+                FileExtension = ".dat",
+                ContentType = "application/octet-stream",
+                StorageProvider = "local",
+                LocalPath = saved.LocalPath,
+                Category = CaseFileCategory.Material,
+            };
+
+            Assert.True(File.Exists(saved.LocalPath));
+            await _storage.DeleteFileAsync(fileRow);
+            Assert.False(File.Exists(saved.LocalPath));
+        }
+    }
+
+    [Fact]
+    public async Task DeleteFileAsync_is_idempotent_when_file_already_missing()
+    {
+        // Simulates: user removed the file from Explorer before the portal got to it.
+        // The DB soft-delete should still succeed; storage layer must not throw.
+        var fileRow = new CaseFile
+        {
+            Id = Guid.NewGuid(),
+            FileName = "ghost.dat",
+            FileExtension = ".dat",
+            ContentType = "application/octet-stream",
+            StorageProvider = "local",
+            LocalPath = Path.Combine(_tempRoot, "does", "not", "exist.dat"),
+            Category = CaseFileCategory.Material,
+        };
+
+        await _storage.DeleteFileAsync(fileRow);
+    }
+
+    [Fact]
+    public async Task DeleteFileAsync_skips_silently_when_LocalPath_is_blank()
+    {
+        var fileRow = new CaseFile
+        {
+            Id = Guid.NewGuid(),
+            FileName = "nopath.dat",
+            FileExtension = ".dat",
+            ContentType = "application/octet-stream",
+            StorageProvider = "local",
+            LocalPath = null,
+            Category = CaseFileCategory.Material,
+        };
+
+        await _storage.DeleteFileAsync(fileRow);
+    }
+
+    [Fact]
     public async Task CreateCaseFolderAsync_throws_when_root_is_unconfigured()
     {
         var storage = new LocalCaseStorage(Options.Create(new LocalStorageOptions { Root = "" }));

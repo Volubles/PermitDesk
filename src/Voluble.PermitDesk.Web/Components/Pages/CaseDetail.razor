@@ -4,6 +4,7 @@
 @inject ISnackbar Snackbar
 @inject IJSRuntime JS
 @inject ICaseStorage Storage
+@inject IDialogService Dialogs
 @inject ILogger<CaseDetail> Logger
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.EntityFrameworkCore
@@ -146,12 +147,13 @@ else
             }
             else
             {
-                <MudTable Items="@_case.Files.OrderByDescending(f => f.UploadedAt)" Dense="true" Hover="true">
+                <MudTable Items="@ActiveFiles" Dense="true" Hover="true" T="CaseFile">
                     <HeaderContent>
                         <MudTh>Filnamn</MudTh>
                         <MudTh>Kategori</MudTh>
                         <MudTh Style="text-align: right;">Storlek</MudTh>
                         <MudTh>Uppladdad</MudTh>
+                        <MudTh></MudTh>
                     </HeaderContent>
                     <RowTemplate>
                         <MudTd DataLabel="Filnamn">
@@ -165,6 +167,15 @@ else
                         </MudTd>
                         <MudTd DataLabel="Storlek" Style="text-align: right;">@FormatSize(context.SizeBytes)</MudTd>
                         <MudTd DataLabel="Uppladdad">@context.UploadedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm")</MudTd>
+                        <MudTd Style="text-align: right;">
+                            <MudTooltip Text="Ta bort fil">
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                               Size="Size.Small"
+                                               Color="Color.Default"
+                                               OnClick="@(() => ConfirmDeleteFile(context))"
+                                               Disabled="_deleting" />
+                            </MudTooltip>
+                        </MudTd>
                     </RowTemplate>
                 </MudTable>
             }
@@ -179,6 +190,13 @@ else
     private bool _loading = true;
     private bool _saving;
     private bool _uploading;
+    private bool _deleting;
+
+    private IEnumerable<CaseFile> ActiveFiles => _case is null
+        ? Enumerable.Empty<CaseFile>()
+        : _case.Files
+            .Where(f => f.DeletedAt is null)
+            .OrderByDescending(f => f.UploadedAt);
     private int _uploadingCurrent;
     private int _uploadingTotal;
     private CaseFileCategory _uploadCategory = CaseFileCategory.Material;
@@ -188,7 +206,8 @@ else
     {
         await using var db = await DbFactory.CreateDbContextAsync();
         _case = await db.Cases
-            .Include(c => c.Files)
+            .AsNoTracking()
+            .Include(c => c.Files.Where(f => f.DeletedAt == null))
             .FirstOrDefaultAsync(c => c.Id == Id);
         _loading = false;
     }
@@ -300,7 +319,7 @@ else
             // Reload fresh, detached, for the UI.
             _case = await db.Cases
                 .AsNoTracking()
-                .Include(c => c.Files)
+                .Include(c => c.Files.Where(f => f.DeletedAt == null))
                 .FirstAsync(c => c.Id == entity.Id);
 
             Snackbar.Add($"{files.Count} fil(er) uppladdade", Severity.Success);
@@ -339,6 +358,85 @@ else
             u++;
         }
         return $"{size:0.#} {units[u]}";
+    }
+
+    private async Task ConfirmDeleteFile(CaseFile file)
+    {
+        if (_case is null) return;
+
+        var confirmed = await Dialogs.ShowMessageBoxAsync(
+            title: "Ta bort fil?",
+            markupMessage: new MarkupString(
+                $"<p><strong>{System.Net.WebUtility.HtmlEncode(file.FileName)}</strong> tas bort både från lokal mapp och från ärendet.</p>" +
+                $"<p>Filen kan inte återställas via portalen. Ändringen loggas.</p>"),
+            yesText: "Ta bort",
+            noText: null,
+            cancelText: "Avbryt",
+            options: new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.ExtraSmall, FullWidth = true });
+
+        if (confirmed != true) return;
+
+        _deleting = true;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+
+            var entity = await db.Cases.FirstAsync(c => c.Id == _case.Id);
+            var fileRow = await db.CaseFiles.FirstOrDefaultAsync(f => f.Id == file.Id);
+            if (fileRow is null || fileRow.DeletedAt is not null)
+            {
+                Snackbar.Add("Filen är redan borttagen.", Severity.Info);
+                return;
+            }
+
+            // Soft-delete the DB row first. If the disk delete throws afterwards,
+            // the row is still marked deleted — we'd rather show "missing on disk"
+            // than have a row whose underlying file is gone and we never noticed.
+            fileRow.DeletedAt = DateTimeOffset.UtcNow;
+            fileRow.DeletedBy = null; // wire up when auth lands
+
+            // Recompute publication using the remaining live files.
+            var remainingFiles = await db.CaseFiles
+                .AsNoTracking()
+                .Where(f => f.CaseId == entity.Id && f.Id != fileRow.Id && f.DeletedAt == null)
+                .ToListAsync();
+            entity.PublicationStatus = PublicationEligibility.Evaluate(entity, remainingFiles);
+            entity.UpdatedAt = DateTimeOffset.UtcNow;
+
+            await db.SaveChangesAsync();
+
+            // Now remove from disk (idempotent — a missing file is OK).
+            try
+            {
+                await Storage.DeleteFileAsync(fileRow);
+            }
+            catch (Exception diskEx)
+            {
+                Logger.LogWarning(diskEx,
+                    "Soft-delete on case {CaseId} file {FileId} succeeded, but disk removal failed",
+                    entity.Id, fileRow.Id);
+                Snackbar.Add(
+                    "Fil markerad som borttagen, men kunde inte tas bort från disk. Kontrollera manuellt.",
+                    Severity.Warning);
+            }
+
+            // Reload the visible case for the UI.
+            _case = await db.Cases
+                .AsNoTracking()
+                .Include(c => c.Files.Where(f => f.DeletedAt == null))
+                .FirstAsync(c => c.Id == entity.Id);
+
+            Snackbar.Add($"{file.FileName} borttagen", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to delete file {FileId}", file.Id);
+            Snackbar.Add($"Kunde inte ta bort fil: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _deleting = false;
+        }
     }
 
     private async Task CopyFolderPath()

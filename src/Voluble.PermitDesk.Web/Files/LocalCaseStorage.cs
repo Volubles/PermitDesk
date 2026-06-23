@@ -64,4 +64,17 @@ public class LocalCaseStorage(IOptions<LocalStorageOptions> options) : ICaseStor
 
         return new SavedCaseFile(targetPath, size);
     }
+
+    public Task DeleteFileAsync(CaseFile file, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(file.LocalPath))
+            return Task.CompletedTask;
+
+        if (File.Exists(file.LocalPath))
+        {
+            File.Delete(file.LocalPath);
+        }
+
+        return Task.CompletedTask;
+    }
 }
