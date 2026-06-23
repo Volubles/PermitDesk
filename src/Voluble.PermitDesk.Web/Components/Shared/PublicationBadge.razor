@@ -1,0 +1,31 @@
+@using Voluble.PermitDesk.Web.Domain
+
+<MudChip T="string" Color="@ChipColor" Size="@Size" Variant="@(Filled ? Variant.Filled : Variant.Outlined)">
+    @Label
+</MudChip>
+
+@code {
+    [Parameter] public PublicationStatus Status { get; set; }
+
+    [Parameter] public Size Size { get; set; } = Size.Small;
+
+    [Parameter] public bool ShortLabel { get; set; }
+
+    [Parameter] public bool Filled { get; set; }
+
+    private Color ChipColor => Status switch
+    {
+        PublicationStatus.Allowed => Color.Success,
+        PublicationStatus.NotAllowed => Color.Error,
+        PublicationStatus.Unknown => Color.Warning,
+        _ => Color.Default,
+    };
+
+    private string Label => Status switch
+    {
+        PublicationStatus.Allowed => ShortLabel ? "JA" : "Får publiceras: JA",
+        PublicationStatus.NotAllowed => ShortLabel ? "NEJ" : "Får publiceras: NEJ",
+        PublicationStatus.Unknown => ShortLabel ? "OSÄKERT" : "Får publiceras: OSÄKERT",
+        _ => "?",
+    };
+}

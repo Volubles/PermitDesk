@@ -3,6 +3,7 @@
 @inject IDbContextFactory<PermitDeskDbContext> DbFactory
 @inject NavigationManager Nav
 @using Microsoft.EntityFrameworkCore
+@using Voluble.PermitDesk.Web.Components.Shared
 @using Voluble.PermitDesk.Web.Data
 @using Voluble.PermitDesk.Web.Domain
 
@@ -61,9 +62,7 @@
                     </MudChip>
                 </MudTd>
                 <MudTd DataLabel="Får publiceras">
-                    <MudChip T="string" Color="@PublicationColor(context.PublicationStatus)" Size="Size.Small" Variant="Variant.Outlined">
-                        @PublicationLabel(context.PublicationStatus)
-                    </MudChip>
+                    <PublicationBadge Status="context.PublicationStatus" ShortLabel="true" />
                 </MudTd>
                 <MudTd DataLabel="Uppdaterad">@context.UpdatedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm")</MudTd>
                 <MudTd>
@@ -116,19 +115,4 @@
         _ => status.ToString()
     };
 
-    private static Color PublicationColor(PublicationStatus status) => status switch
-    {
-        PublicationStatus.Allowed => Color.Success,
-        PublicationStatus.NotAllowed => Color.Error,
-        PublicationStatus.Unknown => Color.Warning,
-        _ => Color.Default
-    };
-
-    private static string PublicationLabel(PublicationStatus status) => status switch
-    {
-        PublicationStatus.Allowed => "JA",
-        PublicationStatus.NotAllowed => "NEJ",
-        PublicationStatus.Unknown => "OSÄKERT",
-        _ => "?"
-    };
 }
