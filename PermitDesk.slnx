@@ -1,0 +1,5 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Voluble.PermitDesk.Web/Voluble.PermitDesk.Web.csproj" />
+  </Folder>
+</Solution>

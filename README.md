@@ -31,3 +31,7 @@ Pre-MVP. See open issues and the project board for current work.
 - Small, focused commits — one logical change per commit
 - One issue per piece of work, tracked on the project board
 - Internal planning lives outside the repo (Obsidian vault, ignored via `.gitignore`)
+
+---
+
+Built by [Voluble](https://voluble.io).
