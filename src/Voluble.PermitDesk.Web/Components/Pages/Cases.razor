@@ -1,0 +1,134 @@
+@page "/cases"
+@rendermode InteractiveServer
+@inject IDbContextFactory<PermitDeskDbContext> DbFactory
+@inject NavigationManager Nav
+@using Microsoft.EntityFrameworkCore
+@using Voluble.PermitDesk.Web.Data
+@using Voluble.PermitDesk.Web.Domain
+
+<PageTitle>Ärenden - PermitDesk</PageTitle>
+
+<MudStack Spacing="4">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+        <MudText Typo="Typo.h4">Ärenden</MudText>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   Href="/cases/new">
+            Nytt ärende
+        </MudButton>
+    </MudStack>
+
+    @if (_loading)
+    {
+        <MudProgressCircular Indeterminate="true" />
+    }
+    else if (_cases.Count == 0)
+    {
+        <MudPaper Class="pa-8" Elevation="0" Outlined="true">
+            <MudStack AlignItems="AlignItems.Center" Spacing="3">
+                <MudIcon Icon="@Icons.Material.Outlined.FolderOff" Size="Size.Large" Color="Color.Secondary" />
+                <MudText Typo="Typo.h6">Inga ärenden ännu</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    Skapa ditt första ärende för att komma igång.
+                </MudText>
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           Href="/cases/new">
+                    Nytt ärende
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+    }
+    else
+    {
+        <MudTable Items="_cases" Hover="true" Dense="true" Striped="true">
+            <HeaderContent>
+                <MudTh>Ärende</MudTh>
+                <MudTh>Adress</MudTh>
+                <MudTh>Status</MudTh>
+                <MudTh>Får publiceras</MudTh>
+                <MudTh>Uppdaterad</MudTh>
+                <MudTh></MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Ärende"><strong>@context.CaseNumber</strong></MudTd>
+                <MudTd DataLabel="Adress">@context.Address</MudTd>
+                <MudTd DataLabel="Status">
+                    <MudChip T="string" Color="@StatusColor(context.Status)" Size="Size.Small" Variant="Variant.Filled">
+                        @StatusLabel(context.Status)
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Får publiceras">
+                    <MudChip T="string" Color="@PublicationColor(context.PublicationStatus)" Size="Size.Small" Variant="Variant.Outlined">
+                        @PublicationLabel(context.PublicationStatus)
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Uppdaterad">@context.UpdatedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm")</MudTd>
+                <MudTd>
+                    <MudIconButton Icon="@Icons.Material.Filled.OpenInNew"
+                                   Size="Size.Small"
+                                   OnClick="@(() => Nav.NavigateTo($"/cases/{context.Id}"))" />
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+</MudStack>
+
+@code {
+    private List<Case> _cases = new();
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        _cases = await db.Cases
+            .AsNoTracking()
+            .OrderByDescending(c => c.UpdatedAt)
+            .ToListAsync();
+        _loading = false;
+    }
+
+    private static Color StatusColor(CaseStatus status) => status switch
+    {
+        CaseStatus.Draft => Color.Default,
+        CaseStatus.MaterialMissing => Color.Warning,
+        CaseStatus.MaterialReady => Color.Info,
+        CaseStatus.ApplicationSubmitted => Color.Primary,
+        CaseStatus.WaitingForDecision => Color.Secondary,
+        CaseStatus.Approved => Color.Success,
+        CaseStatus.Rejected => Color.Error,
+        CaseStatus.ManualReviewRequired => Color.Warning,
+        _ => Color.Default
+    };
+
+    private static string StatusLabel(CaseStatus status) => status switch
+    {
+        CaseStatus.Draft => "Utkast",
+        CaseStatus.MaterialMissing => "Material saknas",
+        CaseStatus.MaterialReady => "Material klart",
+        CaseStatus.ApplicationSubmitted => "Ansökan skickad",
+        CaseStatus.WaitingForDecision => "Väntar på beslut",
+        CaseStatus.Approved => "Godkänt",
+        CaseStatus.Rejected => "Avslag",
+        CaseStatus.ManualReviewRequired => "Kräver manuell kontroll",
+        _ => status.ToString()
+    };
+
+    private static Color PublicationColor(PublicationStatus status) => status switch
+    {
+        PublicationStatus.Allowed => Color.Success,
+        PublicationStatus.NotAllowed => Color.Error,
+        PublicationStatus.Unknown => Color.Warning,
+        _ => Color.Default
+    };
+
+    private static string PublicationLabel(PublicationStatus status) => status switch
+    {
+        PublicationStatus.Allowed => "JA",
+        PublicationStatus.NotAllowed => "NEJ",
+        PublicationStatus.Unknown => "OSÄKERT",
+        _ => "?"
+    };
+}
