@@ -1,0 +1,139 @@
+@page "/cases/new"
+@rendermode InteractiveServer
+@inject IDbContextFactory<PermitDeskDbContext> DbFactory
+@inject CaseNumberGenerator NumberGenerator
+@inject ICaseStorage Storage
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@inject ILogger<CreateCase> Logger
+@using Microsoft.EntityFrameworkCore
+@using Voluble.PermitDesk.Web.Cases
+@using Voluble.PermitDesk.Web.Data
+@using Voluble.PermitDesk.Web.Domain
+@using Voluble.PermitDesk.Web.Files
+
+<PageTitle>Nytt ärende - PermitDesk</PageTitle>
+
+<MudStack Spacing="4" Style="max-width: 720px;">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/cases" />
+        <MudText Typo="Typo.h4">Nytt ärende</MudText>
+    </MudStack>
+
+    <MudPaper Class="pa-6" Elevation="0" Outlined="true">
+        <MudForm @ref="_form" Model="_model">
+            <MudStack Spacing="3">
+                <MudTextField @bind-Value="_model.Title"
+                              Label="Titel"
+                              Required="true"
+                              RequiredError="Titel krävs"
+                              Immediate="true" />
+
+                <MudTextField @bind-Value="_model.Address"
+                              Label="Adress"
+                              Required="true"
+                              RequiredError="Adress krävs"
+                              Immediate="true" />
+
+                <MudTextField @bind-Value="_model.Municipality"
+                              Label="Kommun" />
+
+                <MudDivider Class="my-2" />
+
+                <MudTextField @bind-Value="_model.BrokerName"
+                              Label="Mäklare" />
+
+                <MudTextField @bind-Value="_model.PhotographerName"
+                              Label="Fotograf" />
+
+                <MudStack Row="true" Spacing="3">
+                    <MudTextField @bind-Value="_model.ContactEmail"
+                                  Label="Kontakt e-post"
+                                  InputType="InputType.Email" />
+
+                    <MudTextField @bind-Value="_model.ContactPhone"
+                                  Label="Kontakt telefon"
+                                  InputType="InputType.Telephone" />
+                </MudStack>
+            </MudStack>
+        </MudForm>
+
+        <MudStack Row="true" Spacing="2" Class="mt-6" Justify="Justify.FlexEnd">
+            <MudButton Variant="Variant.Text" Href="/cases" Disabled="_saving">Avbryt</MudButton>
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       OnClick="Submit"
+                       Disabled="_saving"
+                       StartIcon="@Icons.Material.Filled.Save">
+                @(_saving ? "Sparar..." : "Skapa ärende")
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+</MudStack>
+
+@code {
+    private MudForm _form = null!;
+    private CreateCaseModel _model = new();
+    private bool _saving;
+
+    private async Task Submit()
+    {
+        await _form.ValidateAsync();
+        if (!_form.IsValid) return;
+
+        _saving = true;
+        var now = DateTimeOffset.UtcNow;
+
+        try
+        {
+            var caseNumber = await NumberGenerator.GenerateNextAsync(now);
+
+            var newCase = new Case
+            {
+                Id = Guid.NewGuid(),
+                CaseNumber = caseNumber,
+                Title = _model.Title.Trim(),
+                Address = _model.Address.Trim(),
+                Municipality = _model.Municipality?.Trim() ?? string.Empty,
+                BrokerName = NullIfBlank(_model.BrokerName),
+                PhotographerName = NullIfBlank(_model.PhotographerName),
+                ContactEmail = NullIfBlank(_model.ContactEmail),
+                ContactPhone = NullIfBlank(_model.ContactPhone),
+                Status = CaseStatus.MaterialMissing,
+                PublicationStatus = PublicationStatus.NotAllowed,
+                CreatedAt = now,
+                UpdatedAt = now,
+            };
+
+            var folderPath = await Storage.CreateCaseFolderAsync(newCase);
+            newCase.LocalFolderPath = folderPath;
+
+            await using var db = await DbFactory.CreateDbContextAsync();
+            db.Cases.Add(newCase);
+            await db.SaveChangesAsync();
+
+            Snackbar.Add($"Ärende {caseNumber} skapat", Severity.Success);
+            Nav.NavigateTo($"/cases/{newCase.Id}");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to create case");
+            Snackbar.Add($"Kunde inte skapa ärende: {ex.Message}", Severity.Error);
+            _saving = false;
+        }
+    }
+
+    private static string? NullIfBlank(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private class CreateCaseModel
+    {
+        public string Title { get; set; } = string.Empty;
+        public string Address { get; set; } = string.Empty;
+        public string? Municipality { get; set; }
+        public string? BrokerName { get; set; }
+        public string? PhotographerName { get; set; }
+        public string? ContactEmail { get; set; }
+        public string? ContactPhone { get; set; }
+    }
+}
