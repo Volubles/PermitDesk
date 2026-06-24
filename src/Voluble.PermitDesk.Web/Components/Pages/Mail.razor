@@ -1,0 +1,190 @@
+@page "/mail"
+@inject IDbContextFactory<PermitDeskDbContext> DbFactory
+@inject IMailProcessor MailProcessor
+@inject ISnackbar Snackbar
+@inject ILogger<Mail> Logger
+@using Microsoft.EntityFrameworkCore
+@using Voluble.PermitDesk.Web.Data
+@using Voluble.PermitDesk.Web.Domain
+@using Voluble.PermitDesk.Web.Mail
+
+<PageTitle>Mejl - PermitDesk</PageTitle>
+
+<MudStack Spacing="4">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+        <MudText Typo="Typo.h4">Mejlautomatisering</MudText>
+        <MudStack Row="true" Spacing="2">
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Default"
+                       StartIcon="@Icons.Material.Filled.WarningAmber"
+                       Href="/mail/unmatched">
+                Omatchade (@_unmatchedCount)
+            </MudButton>
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.PlayArrow"
+                       OnClick="Process"
+                       Disabled="_processing">
+                @(_processing ? "Bearbetar..." : "Bearbeta inkorgen")
+            </MudButton>
+        </MudStack>
+    </MudStack>
+
+    @if (_lastSummary is not null)
+    {
+        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+            <MudText>
+                Senaste körning: <strong>@_lastSummary.Processed</strong> bearbetade,
+                <strong>@_lastSummary.SkippedDuplicates</strong> dubbletter,
+                <strong>@_lastSummary.ManualReview</strong> kräver manuell kontroll,
+                <strong>@_lastSummary.Failed</strong> misslyckade.
+            </MudText>
+        </MudAlert>
+    }
+
+    @if (_loading)
+    {
+        <MudProgressCircular Indeterminate="true" />
+    }
+    else if (_events.Count == 0)
+    {
+        <MudPaper Class="pa-8" Elevation="0" Outlined="true">
+            <MudStack AlignItems="AlignItems.Center" Spacing="3">
+                <MudIcon Icon="@Icons.Material.Outlined.MarkEmailUnread" Size="Size.Large" Color="Color.Secondary" />
+                <MudText Typo="Typo.h6">Inga mejlhändelser ännu</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    Lägg .eml-filer i konfigurerad Mail:FakeInbox:Path och klicka "Bearbeta inkorgen".
+                </MudText>
+            </MudStack>
+        </MudPaper>
+    }
+    else
+    {
+        <MudTable Items="_events" Dense="true" Hover="true" T="MailEvent">
+            <HeaderContent>
+                <MudTh>Mottagen</MudTh>
+                <MudTh>Avsändare</MudTh>
+                <MudTh>Ämne</MudTh>
+                <MudTh>Klassificering</MudTh>
+                <MudTh>Matchning</MudTh>
+                <MudTh>Status</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Mottagen">@context.ReceivedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm")</MudTd>
+                <MudTd DataLabel="Avsändare">@context.From</MudTd>
+                <MudTd DataLabel="Ämne">@Trim(context.Subject, 64)</MudTd>
+                <MudTd DataLabel="Klassificering">
+                    <MudChip T="string" Size="Size.Small">@ClassificationLabel(context.Classification)</MudChip>
+                </MudTd>
+                <MudTd DataLabel="Matchning">
+                    @if (context.CaseId is null)
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Warning">Omatchad</MudText>
+                    }
+                    else if (_caseLookup.TryGetValue(context.CaseId.Value, out var caseNumber))
+                    {
+                        <MudLink Href="@($"/cases/{context.CaseId}")">@caseNumber</MudLink>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">(ärende borttaget)</MudText>
+                    }
+                </MudTd>
+                <MudTd DataLabel="Status">
+                    <MudChip T="string" Size="Size.Small" Color="@StatusColor(context.ProcessingStatus)">
+                        @StatusLabel(context.ProcessingStatus)
+                    </MudChip>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+</MudStack>
+
+@code {
+    private List<MailEvent> _events = new();
+    private Dictionary<Guid, string> _caseLookup = new();
+    private int _unmatchedCount;
+    private bool _loading = true;
+    private bool _processing;
+    private MailProcessingSummary? _lastSummary;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+
+        _events = await db.MailEvents
+            .AsNoTracking()
+            .OrderByDescending(m => m.ReceivedAt)
+            .Take(100)
+            .ToListAsync();
+
+        var ids = _events.Where(e => e.CaseId is not null).Select(e => e.CaseId!.Value).Distinct().ToList();
+        _caseLookup = await db.Cases
+            .AsNoTracking()
+            .Where(c => ids.Contains(c.Id))
+            .Select(c => new { c.Id, c.CaseNumber })
+            .ToDictionaryAsync(c => c.Id, c => c.CaseNumber);
+
+        _unmatchedCount = await db.MailEvents
+            .CountAsync(m => m.ProcessingStatus == MailProcessingStatus.ManualReviewRequired);
+
+        _loading = false;
+    }
+
+    private async Task Process()
+    {
+        _processing = true;
+        try
+        {
+            _lastSummary = await MailProcessor.ProcessAllAsync();
+            Snackbar.Add(
+                $"{_lastSummary.Processed} bearbetade, {_lastSummary.ManualReview} kräver granskning",
+                _lastSummary.Failed > 0 ? Severity.Warning : Severity.Success);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Mail processing failed");
+            Snackbar.Add($"Bearbetning misslyckades: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _processing = false;
+        }
+    }
+
+    private static string Trim(string s, int max) => s.Length <= max ? s : s[..max] + "…";
+
+    private static string ClassificationLabel(MailClassification c) => c switch
+    {
+        MailClassification.ApplicationConfirmation => "Ansökansbekräftelse",
+        MailClassification.UploadLinkReceived => "Uppladdningslänk",
+        MailClassification.SubmissionConfirmation => "Inskickningsbekräftelse",
+        MailClassification.DecisionApproved => "Beslut: Beviljat",
+        MailClassification.DecisionRejected => "Beslut: Avslag",
+        MailClassification.DecisionNeedsAction => "Beslut: Komplettering",
+        MailClassification.Unknown => "Okänd",
+        _ => c.ToString(),
+    };
+
+    private static string StatusLabel(MailProcessingStatus s) => s switch
+    {
+        MailProcessingStatus.Pending => "Pågående",
+        MailProcessingStatus.Processed => "Bearbetad",
+        MailProcessingStatus.ManualReviewRequired => "Kräver granskning",
+        MailProcessingStatus.FailedClassification => "Klassificering misslyckades",
+        MailProcessingStatus.FailedMatching => "Matchning misslyckades",
+        MailProcessingStatus.FailedPdf => "PDF-rendering misslyckades",
+        _ => s.ToString(),
+    };
+
+    private static Color StatusColor(MailProcessingStatus s) => s switch
+    {
+        MailProcessingStatus.Processed => Color.Success,
+        MailProcessingStatus.ManualReviewRequired => Color.Warning,
+        MailProcessingStatus.Pending => Color.Info,
+        _ => Color.Error,
+    };
+}

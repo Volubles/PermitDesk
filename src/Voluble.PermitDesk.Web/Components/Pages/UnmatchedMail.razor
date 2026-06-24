@@ -1,0 +1,252 @@
+@page "/mail/unmatched"
+@inject IDbContextFactory<PermitDeskDbContext> DbFactory
+@inject ICaseStorage Storage
+@inject IMailInbox Inbox
+@inject IMailPdfRenderer PdfRenderer
+@inject ISnackbar Snackbar
+@inject ILogger<UnmatchedMail> Logger
+@using Microsoft.EntityFrameworkCore
+@using Voluble.PermitDesk.Web.Cases
+@using Voluble.PermitDesk.Web.Data
+@using Voluble.PermitDesk.Web.Domain
+@using Voluble.PermitDesk.Web.Files
+@using Voluble.PermitDesk.Web.Mail
+
+<PageTitle>Omatchade mejl - PermitDesk</PageTitle>
+
+<MudStack Spacing="4">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/mail" />
+        <MudText Typo="Typo.h4">Omatchade mejl</MudText>
+    </MudStack>
+
+    @if (_loading)
+    {
+        <MudProgressCircular Indeterminate="true" />
+    }
+    else if (_events.Count == 0)
+    {
+        <MudPaper Class="pa-8" Elevation="0" Outlined="true">
+            <MudStack AlignItems="AlignItems.Center" Spacing="3">
+                <MudIcon Icon="@Icons.Material.Outlined.MarkEmailRead" Color="Color.Success" Size="Size.Large" />
+                <MudText Typo="Typo.h6">Inga omatchade mejl</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    Allt är hanterat. När nya mejl kommer in och systemet inte hittar
+                    ett ärende automatiskt dyker de upp här.
+                </MudText>
+            </MudStack>
+        </MudPaper>
+    }
+    else
+    {
+        @foreach (var ev in _events)
+        {
+            <MudPaper Class="pa-4" Elevation="0" Outlined="true">
+                <MudStack Spacing="2">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start">
+                        <MudStack Spacing="0">
+                            <MudText Typo="Typo.h6">@ev.Subject</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                Från @ev.From · @ev.ReceivedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm")
+                            </MudText>
+                        </MudStack>
+                        <MudChip T="string" Size="Size.Small" Color="Color.Warning">
+                            @ClassificationLabel(ev.Classification)
+                        </MudChip>
+                    </MudStack>
+
+                    @if (!string.IsNullOrEmpty(ev.BodyPreview))
+                    {
+                        <MudPaper Class="pa-3" Elevation="0" Style="background: var(--mud-palette-background-grey);">
+                            <MudText Typo="Typo.body2" Style="white-space: pre-wrap; font-family: monospace;">@Trim(ev.BodyPreview, 600)</MudText>
+                        </MudPaper>
+                    }
+
+                    <MudGrid>
+                        <MudItem xs="12" md="6">
+                            <MudSelect T="Guid?"
+                                       Value="@(_selectedCase.TryGetValue(ev.Id, out var c) ? c : null)"
+                                       ValueChanged="@(v => OnCaseChanged(ev.Id, v))"
+                                       Label="Koppla till ärende"
+                                       Variant="Variant.Outlined"
+                                       Dense="true">
+                                <MudSelectItem T="Guid?" Value="null">— välj ärende —</MudSelectItem>
+                                @foreach (var c in _cases)
+                                {
+                                    <MudSelectItem T="Guid?" Value="c.Id">@c.CaseNumber — @c.Address</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudSelect T="MailClassification"
+                                       Value="@(_selectedClassification.TryGetValue(ev.Id, out var k) ? k : ev.Classification)"
+                                       ValueChanged="@(v => OnClassificationChanged(ev.Id, v))"
+                                       Label="Klassificering"
+                                       Variant="Variant.Outlined"
+                                       Dense="true">
+                                @foreach (var k in Enum.GetValues<MailClassification>())
+                                {
+                                    <MudSelectItem T="MailClassification" Value="k">@ClassificationLabel(k)</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                    </MudGrid>
+
+                    <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   OnClick="@(() => Resolve(ev))"
+                                   Disabled="@(!_selectedCase.TryGetValue(ev.Id, out var sc) || sc is null || _busyEvent == ev.Id)"
+                                   StartIcon="@Icons.Material.Filled.CheckCircle">
+                            @(_busyEvent == ev.Id ? "Hanterar..." : "Koppla & spara")
+                        </MudButton>
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+        }
+    }
+</MudStack>
+
+@code {
+    private List<MailEvent> _events = new();
+    private List<CaseSummary> _cases = new();
+    private Dictionary<Guid, Guid?> _selectedCase = new();
+    private Dictionary<Guid, MailClassification> _selectedClassification = new();
+    private bool _loading = true;
+    private Guid? _busyEvent;
+
+    private record CaseSummary(Guid Id, string CaseNumber, string Address);
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+
+        _events = await db.MailEvents
+            .AsNoTracking()
+            .Where(m => m.ProcessingStatus == MailProcessingStatus.ManualReviewRequired)
+            .OrderByDescending(m => m.ReceivedAt)
+            .ToListAsync();
+
+        _cases = await db.Cases
+            .AsNoTracking()
+            .OrderByDescending(c => c.UpdatedAt)
+            .Select(c => new CaseSummary(c.Id, c.CaseNumber, c.Address))
+            .ToListAsync();
+
+        _loading = false;
+    }
+
+    private void OnCaseChanged(Guid eventId, Guid? caseId) => _selectedCase[eventId] = caseId;
+    private void OnClassificationChanged(Guid eventId, MailClassification value) => _selectedClassification[eventId] = value;
+
+    private async Task Resolve(MailEvent ev)
+    {
+        if (!_selectedCase.TryGetValue(ev.Id, out var caseId) || caseId is null) return;
+        var classification = _selectedClassification.TryGetValue(ev.Id, out var c) ? c : ev.Classification;
+
+        _busyEvent = ev.Id;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+
+            var caseEntity = await db.Cases.FirstAsync(c => c.Id == caseId.Value);
+            var mailEvent = await db.MailEvents.FirstAsync(m => m.Id == ev.Id);
+
+            // Re-load the inbound mail so we can render the PDF. Source path stayed
+            // in the body/from/subject anyway, but we need the raw file for fidelity.
+            InboundMail? inbound = null;
+            await foreach (var m in Inbox.FetchAllAsync())
+            {
+                if (m.MessageId == ev.ExternalMessageId) { inbound = m; break; }
+            }
+
+            if (inbound is null)
+            {
+                // Fall back to the cached preview if the .eml is gone. PDF will still
+                // be a faithful record of what we have on file.
+                inbound = new InboundMail(
+                    MessageId: ev.ExternalMessageId,
+                    From: ev.From,
+                    Subject: ev.Subject,
+                    TextBody: ev.BodyPreview ?? "(originalmejlet är inte längre tillgängligt)",
+                    HtmlBody: null,
+                    ReceivedAt: ev.ReceivedAt,
+                    SourcePath: "(cached)");
+            }
+
+            // Render and save the PDF
+            var pdf = await PdfRenderer.RenderAsync(inbound);
+            var category = MailStatusRules.CategoryFor(classification);
+            var fileName = $"{classification}-{ev.ReceivedAt.LocalDateTime:yyyy-MM-dd-HHmm}.pdf";
+
+            await using var pdfStream = new MemoryStream(pdf);
+            var saved = await Storage.SaveFileAsync(caseEntity, category, fileName, pdfStream);
+
+            var pdfFile = new CaseFile
+            {
+                Id = Guid.NewGuid(),
+                CaseId = caseEntity.Id,
+                FileName = Path.GetFileName(saved.LocalPath),
+                FileExtension = ".pdf",
+                ContentType = "application/pdf",
+                SizeBytes = saved.SizeBytes,
+                Category = category,
+                StorageProvider = "local",
+                LocalPath = saved.LocalPath,
+                UploadedAt = DateTimeOffset.UtcNow,
+                UploadedBy = "mail-pipeline-manual",
+            };
+            db.CaseFiles.Add(pdfFile);
+
+            // Update mail event
+            mailEvent.CaseId = caseEntity.Id;
+            mailEvent.Classification = classification;
+            mailEvent.MatchConfidence = MailMatchConfidence.Low; // manual = lowest auto-confidence
+            mailEvent.PdfFileId = pdfFile.Id;
+            mailEvent.ProcessedAt = DateTimeOffset.UtcNow;
+            mailEvent.ProcessingStatus = MailProcessingStatus.Processed;
+            mailEvent.ProcessingError = null;
+
+            // Update case
+            caseEntity.Status = MailStatusRules.NextStatusFor(caseEntity.Status, classification);
+
+            var liveFiles = await db.CaseFiles
+                .AsNoTracking()
+                .Where(f => f.CaseId == caseEntity.Id && f.DeletedAt == null)
+                .ToListAsync();
+            var allFiles = liveFiles.Concat([pdfFile]).ToList();
+            caseEntity.PublicationStatus = PublicationEligibility.Evaluate(caseEntity, allFiles);
+            caseEntity.UpdatedAt = DateTimeOffset.UtcNow;
+
+            await db.SaveChangesAsync();
+
+            Snackbar.Add($"Mejl kopplat till {caseEntity.CaseNumber}", Severity.Success);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to manually resolve mail event {EventId}", ev.Id);
+            Snackbar.Add($"Kunde inte hantera mejlet: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _busyEvent = null;
+        }
+    }
+
+    private static string Trim(string s, int max) => s.Length <= max ? s : s[..max] + "…";
+
+    private static string ClassificationLabel(MailClassification c) => c switch
+    {
+        MailClassification.ApplicationConfirmation => "Ansökansbekräftelse",
+        MailClassification.UploadLinkReceived => "Uppladdningslänk",
+        MailClassification.SubmissionConfirmation => "Inskickningsbekräftelse",
+        MailClassification.DecisionApproved => "Beslut: Beviljat",
+        MailClassification.DecisionRejected => "Beslut: Avslag",
+        MailClassification.DecisionNeedsAction => "Beslut: Komplettering",
+        MailClassification.Unknown => "Okänd",
+        _ => c.ToString(),
+    };
+}
