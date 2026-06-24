@@ -1,6 +1,0 @@
-# HTTrack Website Copier Cookie File
-# This file format is compatible with Netscape cookies
-filskick-spridningstillstand.lantmateriet.se	TRUE	/	FALSE	1999999999	726c06e450760fde083689ad2ae99606	56fe0eab3bb7fbdee323b218364f6cd1
-filskick-spridningstillstand.lantmateriet.se	TRUE	/	FALSE	1999999999	lmpersistence	!4P3JDofIDX2ipE99lojrlqAeE6w336X8LMhBmMs6WchnUvlmDcn3usYz0gp4iUHnJRWWVkDI419XAg==
-filskick-spridningstillstand.lantmateriet.se	TRUE	/	FALSE	1999999999	TS0191c2f8	01e8713d64a34bdadbaed5752157deed1d702eca089e81705fc7d0c37312aa7e1972a155c15e16e6cf55dfb014f18f52a91167cdeb788703ecd1673f8f55b09125a44d5e82fe5feab8343ad77e7a231df0955228d7
-
