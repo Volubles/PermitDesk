@@ -1,0 +1,5 @@
+# HTTrack Website Copier Cookie File
+# This file format is compatible with Netscape cookies
+www.lantmateriet.se	TRUE	/	FALSE	1999999999	lmpersistence	!tr4o5YrrNtVONRl9lojrlqAeE6w33y0/19up/9icEv7t+SnhQ4yM0ADE7e3dZpv5NQHOMdtM0RfTKg==
+.www.lantmateriet.se	TRUE	/	FALSE	1999999999	TS01c51b86	01e8713d649ec8051dddeb08ee19354c24e57e8e255c4e642bb950ac84d9ffcb54eb2b27373caa596a2d26bff87e746612c52acc21
+

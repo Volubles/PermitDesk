@@ -1,0 +1,55 @@
+HTTrack3.49-2+htsswf+htsjava launched on Wed, 24 Jun 2026 15:33:36 at https://www.lantmateriet.se/sv/spridningstillstand/ansokan/ +*.png +*.gif +*.jpg +*.jpeg +*.css +*.js -ad.doubleclick.net/* -mime:application/foobar
+(winhttrack -WC2%Ps2u1%s%uN0%I0p3DaK0H0%kf2A25000%f#f -F "Mozilla/4.5 (compatible; HTTrack 3.0x; Windows 98)" -%F "<!-- Mirrored from %s%s by HTTrack Website Copier/3.x [XR&CO'2014], %s -->" -%l "en, *" https://www.lantmateriet.se/sv/spridningstillstand/ansokan/ -O1 "C:\Users\Benjamin\Documents\PermitDesk\lantmaterietsourcewebsites\form\LantForms" +*.png +*.gif +*.jpg +*.jpeg +*.css +*.js -ad.doubleclick.net/* -mime:application/foobar )
+
+Information, Warnings and Errors reported for this mirror:
+note:	the hts-log.txt file, and hts-cache folder, may contain sensitive information,
+	such as username/password authentication for websites mirrored in this project
+	do not share these files/folders if you want these information to remain private
+
+15:34:23	Error: 	"Forbidden" (403) at link https://app-eu.readspeaker.com/cgi-bin/rsent?customerid=11070&lang=sv&readclass=webreader-read&url=http://www.lantmateriet.se/sv/spridningstillstand/ansokan/ (from https://www.lantmateriet.se/sv/spridningstillstand/ansokan/)
+15:34:23	Warning: 	file not stored in cache due to bogus state (incomplete type with OK (200), size 7084): https://redet.lantmateriet.se/media/logotypes/lantmateriet-rgb.svg
+15:34:34	Error: 	Duplicate entry in hts_wait_delayed() cancelled: www.w3.org/2000/svg -> C:/Users/Benjamin/Documents/PermitDesk/lantmaterietsourcewebsites/form/LantForms/www.w3.org/2000/svg.74.delayed
+15:34:34	Warning: 	link is probably looping, type unknown, aborting: www.w3.org/2000/svg
+15:34:36	Warning: 	Moved Temporarily for purl.org/robots.txt
+15:34:36	Warning: 	Redirected link is identical because of 'URL Hack' option: purl.org/robots.txt and https://purl.org/robots.txt
+15:34:36	Warning: 	Warning moved treated for purl.org/robots.txt (real one is https://purl.org/robots.txt)
+15:34:36	Warning: 	Moved Temporarily for purl.org/dc/elements/1.1/
+15:34:36	Warning: 	Redirected link is identical because of 'URL Hack' option: purl.org/dc/elements/1.1/ and https://purl.org/dc/elements/1.1/
+15:34:36	Warning: 	File has moved from purl.org/dc/elements/1.1/ to https://purl.org/dc/elements/1.1/
+15:34:36	Warning: 	Found for creativecommons.org/robots.txt
+15:34:36	Warning: 	Redirected link is identical because of 'URL Hack' option: creativecommons.org/robots.txt and https://creativecommons.org/robots.txt
+15:34:36	Warning: 	Warning moved treated for creativecommons.org/robots.txt (real one is https://creativecommons.org/robots.txt)
+15:34:36	Warning: 	Found for creativecommons.org/ns
+15:34:36	Warning: 	Redirected link is identical because of 'URL Hack' option: creativecommons.org/ns and https://creativecommons.org/ns
+15:34:36	Warning: 	File has moved from creativecommons.org/ns to https://creativecommons.org/ns
+15:34:36	Error: 	Duplicate entry in hts_wait_delayed() cancelled: https://creativecommons.org/ns -> C:/Users/Benjamin/Documents/PermitDesk/lantmaterietsourcewebsites/form/LantForms/creativecommons.org/ns.72.delayed
+15:34:36	Warning: 	link is probably looping, type unknown, aborting: https://creativecommons.org/ns
+15:34:36	Error: 	Duplicate entry in hts_wait_delayed() cancelled: https://creativecommons.org/ns -> C:/Users/Benjamin/Documents/PermitDesk/lantmaterietsourcewebsites/form/LantForms/creativecommons.org/ns.72.delayed
+15:34:36	Warning: 	link is probably looping, type unknown, aborting: https://creativecommons.org/ns
+15:34:37	Warning: 	Moved Permanently for www.w3.org/robots.txt
+15:34:37	Warning: 	Redirected link is identical because of 'URL Hack' option: www.w3.org/robots.txt and https://www.w3.org/robots.txt
+15:34:37	Warning: 	Warning moved treated for www.w3.org/robots.txt (real one is https://www.w3.org/robots.txt)
+15:34:37	Warning: 	Moved Permanently for www.w3.org/1999/02/22-rdf-syntax-ns
+15:34:37	Warning: 	Redirected link is identical because of 'URL Hack' option: www.w3.org/1999/02/22-rdf-syntax-ns and https://www.w3.org/1999/02/22-rdf-syntax-ns
+15:34:37	Warning: 	File has moved from www.w3.org/1999/02/22-rdf-syntax-ns to https://www.w3.org/1999/02/22-rdf-syntax-ns
+15:34:37	Error: 	Duplicate entry in hts_wait_delayed() cancelled: https://www.w3.org/1999/02/22-rdf-syntax-ns -> C:/Users/Benjamin/Documents/PermitDesk/lantmaterietsourcewebsites/form/LantForms/www.w3.org/1999/02/22-rdf-syntax-ns.73.delayed
+15:34:37	Warning: 	link is probably looping, type unknown, aborting: https://www.w3.org/1999/02/22-rdf-syntax-ns
+15:34:37	Error: 	Duplicate entry in hts_wait_delayed() cancelled: https://www.w3.org/1999/02/22-rdf-syntax-ns -> C:/Users/Benjamin/Documents/PermitDesk/lantmaterietsourcewebsites/form/LantForms/www.w3.org/1999/02/22-rdf-syntax-ns.73.delayed
+15:34:37	Warning: 	link is probably looping, type unknown, aborting: https://www.w3.org/1999/02/22-rdf-syntax-ns
+15:34:37	Warning: 	Moved Permanently for www.w3.org/2000/svg
+15:34:37	Warning: 	Redirected link is identical because of 'URL Hack' option: www.w3.org/2000/svg and https://www.w3.org/2000/svg
+15:34:37	Warning: 	File has moved from www.w3.org/2000/svg to https://www.w3.org/2000/svg
+15:34:37	Error: 	Duplicate entry in hts_wait_delayed() cancelled: https://www.w3.org/2000/svg -> C:/Users/Benjamin/Documents/PermitDesk/lantmaterietsourcewebsites/form/LantForms/www.w3.org/2000/svg.74.delayed
+15:34:37	Warning: 	link is probably looping, type unknown, aborting: https://www.w3.org/2000/svg
+15:34:37	Error: 	Duplicate entry in hts_wait_delayed() cancelled: https://www.w3.org/2000/svg -> C:/Users/Benjamin/Documents/PermitDesk/lantmaterietsourcewebsites/form/LantForms/www.w3.org/2000/svg.74.delayed
+15:34:37	Warning: 	link is probably looping, type unknown, aborting: https://www.w3.org/2000/svg
+15:34:37	Warning: 	Moved Temporarily for purl.org/dc/dcmitype/StillImage
+15:34:37	Warning: 	Redirected link is identical because of 'URL Hack' option: purl.org/dc/dcmitype/StillImage and https://purl.org/dc/dcmitype/StillImage
+15:34:37	Warning: 	File has moved from purl.org/dc/dcmitype/StillImage to https://purl.org/dc/dcmitype/StillImage
+15:34:37	Error: 	Duplicate entry in hts_wait_delayed() cancelled: https://purl.org/dc/dcmitype/StillImage -> C:/Users/Benjamin/Documents/PermitDesk/lantmaterietsourcewebsites/form/LantForms/purl.org/dc/dcmitype/StillImage.75.delayed
+15:34:37	Warning: 	link is probably looping, type unknown, aborting: https://purl.org/dc/dcmitype/StillImage
+15:34:37	Error: 	Duplicate entry in hts_wait_delayed() cancelled: https://purl.org/dc/dcmitype/StillImage -> C:/Users/Benjamin/Documents/PermitDesk/lantmaterietsourcewebsites/form/LantForms/purl.org/dc/dcmitype/StillImage.75.delayed
+15:34:37	Warning: 	link is probably looping, type unknown, aborting: https://purl.org/dc/dcmitype/StillImage
+
+HTTrack Website Copier/3.49-2 mirror complete in 1 minutes 1 seconds : 125 links scanned, 114 files written (3295196 bytes overall) [2548913 bytes received at 41785 bytes/sec], 1850257 bytes transferred using HTTP compression in 11 files, ratio 55%, 1.0 requests per connection
+(10 errors, 34 warnings, 0 messages)

@@ -1,21 +1,56 @@
-From: spridningstillstand@lantmateriet.se
-To: spridningstillstand.oland@fastighetsbyran.se
-Subject: Bekräftelse på mottagen ansökan om spridningstillstånd - FBO-2026-0001
-Date: Mon, 8 Jun 2026 09:14:22 +0200
-Message-ID: <fixture-application-conf-001@lantmateriet.se>
+Return-Path: <arendehantering@lm.se>
+Received: from nexus-tsg001.lmv.lm.se (nexus-tsg001.lmv.lm.se. [2001:67c:268c:f111::3083])
+	by mx.example.se with ESMTPS id 38308e7fff4ca-39aa8a72a7asi11959771fa.185.2026.06.24.06.24.38
+	for <test@example.se>
+	(version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+	Wed, 24 Jun 2026 06:24:38 -0700 (PDT)
+Authentication-Results: mx.example.se;
+       dkim=pass header.i=@lm.se header.s=selector1;
+       spf=pass smtp.mailfrom=arendehantering@lm.se;
+       dmarc=pass header.from=lm.se
+Date: Wed, 24 Jun 2026 15:24:37 +0200 (CEST)
+From: arendehantering@lm.se
+Reply-To: arendehantering@lm.se
+To: test@example.se
+Message-ID: <1099652709.9259.1782307477753@lisa-arende-prd.lmv.lm.se>
+Subject: =?UTF-8?Q?Vi_har_registrerat_er_ans=C3=B6kan_om_s?=
+ =?UTF-8?Q?pridningstillst=C3=A5nd_(LM2026/093031)?=
 MIME-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: multipart/mixed;
+	boundary="----=_Part_9258_2065043448.1782307477741"
 
-Hej,
+------=_Part_9258_2065043448.1782307477741
+content-type: text/html; charset=UTF-8
 
-Tack för din ansökan om spridningstillstånd.
-
-Vi har mottagit din ansökan med din egen referens FBO-2026-0001 och tilldelat
-ärendenummer 2026/12345.
-
-Inom kort kommer du att få en separat länk där du laddar upp materialet för
-granskning. Hör av dig om du inte fått länken inom 1-2 vardagar.
-
-Med vänlig hälsning,
+<!-- Spridningstillstånd - Filskick - Svenska: v2025-06-12T13:15 -->
+<span style="font-size: 11.0pt;font-family:'Gill Sans MT',sans-serif">
+Hej test,
+<br/>
+Vi har registrerat er ansökan om spridningstillstånd enligt lag (2016:319) om skydd för geografisk information. Ansökan har fått ärendenummer: <b>LM2026/093031</b>, uppge detta vid kontakter med Lantmäteriet angående ärendet. Om du har frågor gällande din ansökan, vänligen mejla: <a href="mailto:spridningstillstand@lm.se?subject=LM2026/093031:">spridningstillstand@lm.se</a>. För uppskattad handläggningstid, se vår hemsida under Vanliga frågor <a href="https://www.lantmateriet.se/sv/spridningstillstand/vanliga-fragor/">https://www.lantmateriet.se/sv/spridningstillstand/vanliga-fragor/</a>
+</span>
+<br/><br/>
+<span style="font-size: 11.0pt;font-family:'Gill Sans MT',sans-serif">
+<b>Vi behöver få ta del av ert material</b><br/>För att vi ska kunna handlägga ert ärende behöver vi få ta del av det material ni beskrivit i ansökan.<br/>Vänligen ladda upp materialet via länken nedan inom 14 dagar:<br/><a href="https://filskick-spridningstillstand.lantmateriet.se/skicka/AmvvxgZAiG4TrRX8Rj9Uw3X7yvRPVRzbMiVUbAHXd0g">https://filskick-spridningstillstand.lantmateriet.se/skicka/AmvvxgZAiG4TrRX8Rj9Uw3X7yvRPVRzbMiVUbAHXd0g</a><br/>Länken är giltig för 1 uppladdningstillfälle.
+</span>
+<br/><br/>
+<span style="font-size: 11.0pt;font-family:'Gill Sans MT',sans-serif">
+<b>Vad händer nu?</b><br/>
+Efter att vi har fått in materialet placeras ert ärende i kö.<br/>Under handläggningens gång kan ni komma att bli kontaktade av oss vid frågetecken angående er ansökan eller ert material.<br/>
+När vi fattat beslut i ert ärende kommer ni få besked via e-post.
+</span>
+<br/><br/>
+<span style="font-size: 11.0pt;font-family:'Gill Sans MT',sans-serif">
+<b>I ansökan som inkom den 2026-06-24 angav ni följande information</b><br/>
+<table style="padding: 0px 20px 0px 0px; border-collapse: collapse;" >
+<tr><td>Sökande</td><td>Test</td></tr>
+<tr><td>Kontaktperson</td><td>test tst</td></tr>
+<tr><td>Telefon</td><td>0701234567</td></tr>
+<tr><td>E-post</td><td>test@example.se</td></tr>
+<tr><td>Referens</td><td>FBO-2026-0001</td></tr>
+</table>
+</span>
+<br/>
+Med vänlig hälsning,<br/>
 Lantmäteriet
-Spridningstillstånd
+
+------=_Part_9258_2065043448.1782307477741--

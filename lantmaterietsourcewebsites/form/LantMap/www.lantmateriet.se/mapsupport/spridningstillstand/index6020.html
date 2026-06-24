@@ -1,0 +1,268 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="sv" xml:lang="sv">
+
+
+<!-- Mirrored from www.lantmateriet.se/mapsupport/spridningstillstand/index.html?locale=sv&v=7.15.13.0 by HTTrack Website Copier/3.x [XR&CO'2014], Wed, 24 Jun 2026 13:36:24 GMT -->
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <title>Kartstöd för spridningstillstånd - Lantmäteriet</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+
+    <script>
+        
+        // Kartstöd-version: 1.0.14
+
+        var dojoConfig = {
+            locale: location.search.match(/locale=([\w-]+)/) ? RegExp.$1 : "sv",
+            parseOnLoad: true
+        };
+
+    </script>
+
+    <script src="libs/arcgis-to-geojson.js"></script> <!-- v1.3.0 -->
+    <script src="libs/exif-reader.min.js"></script> <!-- v3.14.1 -->
+    <script src="libs/uuidv4.min.js"></script> <!-- v8.3.2 -->
+    <script src="libs/mp4box.all.min.js"></script> <!-- v0.5.2 -->
+
+    <link href="libs/tabulator.min.css" rel="stylesheet"> <!-- v5.4.3 -->
+    <script type="text/javascript" src="libs/tabulator.min.js"></script> <!-- v5.4.3 -->
+    <link rel="stylesheet" href="../../../js.arcgis.com/4.27/esri/themes/light/main.css" />
+    <script src="https://js.arcgis.com/4.27/"></script>
+    <script src="kartstod.js"></script>
+    <script src="swedenPolygon.js"></script>
+    <script src="lmSrtReader.js"></script>
+    <script type="module" src="../../../js.arcgis.com/calcite-components/1.4.3/calcite.esm.js"></script>
+    <link rel="stylesheet" type="text/css" href="../../../js.arcgis.com/calcite-components/1.4.3/calcite.css" />
+    
+
+    <!-- jQuery library -->
+    <script src="libs/jquery-3.7.1.min.js"></script>
+
+    <style>
+        html,
+        body,
+        #viewDiv {
+            padding: 0;
+            margin: 0;
+            height: 100%;
+            width: 100%;
+        }
+
+        .esri-widget--lmactionDiv {
+            width: 204px;
+        }
+
+        .esri-widget--lmbutton {
+            width: 100px;
+            display: inline-block;
+            border: 1px;
+
+        }
+
+        .esri-attribute__title {
+            text-align: center;
+            flex: 1 1 auto;
+            overflow: hidden
+        }
+
+        .panel-container {
+            width: 300px;
+            background-color: #f5f5f5;
+            margin: 0px 0px 10px 0px;
+            box-sizing: content-box;
+            border: 0px;
+            max-height: 200px;
+        }
+
+        #warning {
+            background-color: rgb(255, 255, 255);
+            opacity: 0;
+            width: 100%;
+            text-align: center;
+            transition: opacity 250ms ease-in-out;
+            transition-delay: 125ms;
+        }
+
+        #warning .message {
+            font-family: "Avenir Next W00", "Helvetica Neue", Helvetica, Arial, sans-serif;
+            font-size: 14px;
+            padding: 15px;
+            background-color: #ff3333;
+            color: #323232;
+        }
+
+        #scaleLabel {
+            position: absolute;
+            bottom: 45px;
+            left: 0px !important;
+            font-family: "Avenir Next W00", "Helvetica Neue", Helvetica, Arial, sans-serif;
+            color: #323232;
+            text-shadow: 0 0 1px #fff, 0 0 1px #fff, 0 0 1px #fff;
+            font-weight: 600;
+            background-color: transparent;
+            width: 250px;
+            text-align: left !important;
+        }
+
+        #drawPolygonLabel {
+            top: 15px;
+            right: 15px;
+            background-color: #ebe1e1;
+            padding: 5px;
+            block-size: 18px;
+        }
+
+        .esri-scale-bar__ruler-block {
+            background-color: #e60000;
+        }
+
+        .esri-icon-non-visible::before {
+            content: "\e610";
+        }
+        .esri-icon-visible::before {
+            content: "\e611";
+        }
+
+        .esri-collapse__icon.esri-icon-table {
+            font-size: 24px;
+        }
+
+    </style>
+</head>
+
+<body>
+    <div id="sketchDiv">
+        <div id="sketchLabelDiv" style="background-color:#e6e6e6">
+            <span style="padding-left: 20px; padding-right: 22px; border-right: 1px dotted #949494;" id="sketchLabelSelect">Markera</span>
+            <span id="sketchLabelDraw" style="padding-left: 57px; padding-right: 50px; border-right: 1px dotted #949494;">Rita</span>
+        </div>
+        <div id="sketchWidgetDiv" ></div>
+    </div>
+    <div id="viewDiv">
+        <div id="drawings-table" class="panel-container"></div>
+        <div id="actionDiv" class="esri-component--noboxshadow" style="box-shadow: none">
+            <button id="btnClearAll" type="button" aria-label="Rensa kartan" title="Rensa kartan" style="display:none"
+                class="esri-component esri-widget--button esri-widget--lmbutton">Rensa kartan</button>
+            <button id="btnDone" type="button" aria-label="Spara och stäng" title="Spara och stäng" style="display:none"
+                class="esri-component esri-widget--button esri-widget--lmbutton">Spara</button>
+        </div>
+    </div>
+
+    <div id="scaleLabel" class="esri-component--noboxshadow" style="box-shadow: none"></div>
+    <div id="scaleBarDiv"></div>
+
+    <calcite-label id="drawPolygonLabel" scale="s">Gör en dubbel-tryckning för att avsluta ritningen</calcite-label>
+
+    <calcite-modal aria-labelledby="modal-title" disable-outside-close scale="m" id="saveModal">
+        <div slot="header" id="modalSaveTitle">Spara figurer?</div>
+        <div slot="content" id="modalSaveContent"><p>Vill du spara och fortsätta med formuläret?</p></div>
+        <calcite-button slot="secondary" width="full" appearance="outline" id="btnCancel">Återgå</calcite-button>
+        <calcite-button slot="primary" width="full" id="btnSave">Spara</calcite-button>
+    </calcite-modal>
+
+    <calcite-modal aria-labelledby="modal-title" disable-outside-close scale="m" id="noFeaturesModal">
+        <div slot="header" id="modalNoFeaturesTitle">Stänga ner kartan?</div>
+        <div slot="content" id="modalNoFeaturesContent"><p>Vill du verkligen stänga kartan utan att rita några figurer?</p></div>
+        <calcite-button slot="secondary" width="full" appearance="outline" id="btnNoneCancel">Återgå</calcite-button>
+        <calcite-button slot="primary" width="full" id="btnNoneClose">Stäng</calcite-button>
+    </calcite-modal>
+
+    <calcite-modal aria-labelledby="modal-title" disable-outside-close scale="m" id="errorModal">
+        <div slot="header" id="modalErrorTitle">Oväntat fel har uppstått</div>
+        <div slot="content" id="modalErrorBody">
+            <p>Ett oväntat fel har uppstått med de ritade figurerna. Alla figurer kommer att tas bort.</p>
+        </div>
+        <calcite-button slot="primary" width="full" id="btnErrorClose">Stäng</calcite-button>
+    </calcite-modal>
+
+    <calcite-modal aria-labelledby="modal-title" disable-outside-close scale="m" id="greatPolygonModal">
+        <div slot="header" id="modalValidTitle">Bekräfta spara</div>
+        <div slot="content" id="modalValidBody">
+            <p>Följande bör åtgärdas:</p>
+        </div>
+        <calcite-button slot="primary" width="full" id="btnValidClose">Stäng</calcite-button>
+    </calcite-modal>
+
+    <calcite-modal aria-labelledby="modal-title" disable-outside-close scale="m" id="clearAllModal">
+        <div slot="header" id="modalClearTitle">Ta bort alla figurer?</div>
+        <div slot="content" id="modalClearContent">Vill du verkligen ta bort alla figurer från kartan?</div>
+        <calcite-button slot="secondary" width="full" appearance="outline" id="btnClearNo">Nej</calcite-button>
+        <calcite-button slot="primary" width="full" id="btnClearYes">Ja</calcite-button>
+    </calcite-modal>
+
+    <div id="exifWindow">
+        <div style='width:300px; padding:10px; background-color:white'>
+            <div id="exifDescription">
+                Hämta koordinater från filer m.h.a. Exif
+            </div>
+            <p></p>
+            <form enctype="multipart/form-data" method="post" id="exifFileForm"> <!-- Hämta koord från fil -->
+                <div class="field">
+                    <label class="file-upload">
+                        <span><strong>
+                                <div id="exifGetFiles">
+                                    Hämta från filer
+                                </div>
+                            </strong></span>
+                        <input type="file" name="file" id="inFile" multiple />
+                    </label>
+                </div>
+            </form>
+            <p></p>
+            <form enctype="multipart/form-data" method="post" id="exifDirForm"> <!-- Hämta koord från mapp -->
+                <div class="field">
+                    <label class="file-upload">
+                        <span><strong>
+                                <div id="exifGetDir">
+                                    Hämta från folder
+                                </div>
+                            </strong></span>
+                        <input type="file" name="file" id="inDir" webkitdirectory multiple />
+                    </label>
+                </div>
+            </form>
+            <p></p>
+            <form enctype="multipart/form-data" method="post" id="srtFileForm"> <!-- Hämta flyglogg från fil -->
+                <div class="field">
+                    <label class="file-upload">
+                        <span><strong>
+                                <div id="srtGetFiles">
+                                    Hämta flygrutt från undertext (.SRT)
+                                </div>
+                            </strong></span>
+                        <input type="file" name="file" id="inFile" accept=".srt,.mp4,.mov,.m4v" multiple />
+                    </label>
+                </div>
+            </form>
+            <p></p>
+            <form enctype="multipart/form-data" method="post" id="srtDirForm"> <!-- Hämta flyglogg från mapp -->
+                <div class="field">
+                    <label class="file-upload">
+                        <span><strong>
+                                <div id="srtGetDir">
+                                    Hämta flygrutt från undertexter i katalog
+                                </div>
+                            </strong></span>
+                        <input type="file" name="file" id="inDir" webkitdirectory multiple />
+                    </label>
+                </div>
+            </form>
+            <p></p>
+            <div id="videoProgressDiv">
+            </div>
+            <div id="exifStatus">
+                <b><div id="exifResult">Resultat</div></b>
+                <span id="exifFileSuccess">0</span> <span id="exifOf">av</span> <span id="exifFilesTotal">0</span> <span id="exifFilesFetched">filer hämtades</span>
+            </div>
+            <div id="exifFailed">
+                <b><div id="exifFilesFailedLabel"></div></b>
+                <div id="exifFilesFailed" style="overflow:scroll; height:150px;"></div>
+            </div>
+        </div>
+    </div>
+
+</body>
+
+<!-- Mirrored from www.lantmateriet.se/mapsupport/spridningstillstand/index.html?locale=sv&v=7.15.13.0 by HTTrack Website Copier/3.x [XR&CO'2014], Wed, 24 Jun 2026 13:36:29 GMT -->
+</html>

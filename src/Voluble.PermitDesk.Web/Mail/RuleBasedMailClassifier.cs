@@ -33,8 +33,8 @@ public class RuleBasedMailClassifier : IMailClassifier
             BodyAny:    ["mottagit material för granskning", "material för granskning"]),
 
         new(MailClassification.ApplicationConfirmation,
-            SubjectAny: ["bekräftelse", "mottagen ansökan", "ansökan mottagen"],
-            BodyAny:    ["mottagit din ansökan", "tack för din ansökan"]),
+            SubjectAny: ["bekräftelse", "mottagen ansökan", "ansökan mottagen", "registrerat er ansökan"],
+            BodyAny:    ["mottagit din ansökan", "tack för din ansökan", "registrerat er ansökan"]),
     ];
 
     public MailClassification Classify(InboundMail mail)

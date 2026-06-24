@@ -59,8 +59,12 @@ public class FakeMailInbox(
                    ?? message.From.ToString();
 
         var subject = message.Subject ?? string.Empty;
-        var textBody = message.TextBody ?? message.HtmlBody ?? string.Empty;
         var htmlBody = message.HtmlBody;
+        // Lantmäteriet's real mails are HTML-only. Convert to text so the
+        // classifier and extractors don't have to substring-match against raw
+        // markup (and the rendered PDF stays readable).
+        var textBody = message.TextBody
+            ?? (htmlBody is not null ? HtmlToText.Convert(htmlBody) : string.Empty);
         // Normalise to UTC. Postgres timestamptz only accepts offset 0, and we
         // want the rest of the pipeline (PDF render, DB persist, display) to
         // work off a single timezone — UTC stored, .ToLocalDateTime() at the
