@@ -35,6 +35,7 @@ builder.Services.AddScoped<IMailInbox, FakeMailInbox>();
 builder.Services.AddSingleton<IMailClassifier, RuleBasedMailClassifier>();
 builder.Services.AddScoped<ICaseMatcher, CaseMatcher>();
 builder.Services.AddSingleton<IMailPdfRenderer, PdfSharpMailRenderer>();
+builder.Services.AddScoped<IMailProcessor, MailProcessor>();
 
 var app = builder.Build();
 
