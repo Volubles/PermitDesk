@@ -30,6 +30,16 @@ builder.Services.AddScoped<ICaseStorage, LocalCaseStorage>();
 
 var app = builder.Build();
 
+if (args.Length > 0 && args[0].Equals("seed", StringComparison.OrdinalIgnoreCase))
+{
+    using var scope = app.Services.CreateScope();
+    var dbFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<PermitDeskDbContext>>();
+    var numberGenerator = scope.ServiceProvider.GetRequiredService<CaseNumberGenerator>();
+    var storage = scope.ServiceProvider.GetRequiredService<ICaseStorage>();
+    await SeedData.RunAsync(dbFactory, numberGenerator, storage);
+    return;
+}
+
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {

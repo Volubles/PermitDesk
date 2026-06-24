@@ -62,6 +62,14 @@ Requires .NET 10 SDK and a running PostgreSQL.
    dotnet run
    ```
 
+4. (Optional) Seed 15 realistic test cases:
+
+   ```sh
+   dotnet run --project src/Voluble.PermitDesk.Web -- seed
+   ```
+
+   Idempotent — re-running skips cases already on disk.
+
 ## Repo conventions
 
 - Small, focused commits — one logical change per commit
