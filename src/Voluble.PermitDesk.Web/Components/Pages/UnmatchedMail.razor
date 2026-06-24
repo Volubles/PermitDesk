@@ -154,6 +154,23 @@
             var caseEntity = await db.Cases.FirstAsync(c => c.Id == caseId.Value);
             var mailEvent = await db.MailEvents.FirstAsync(m => m.Id == ev.Id);
 
+            // Match the auto-pipeline: extract LM ref + upload URL here too
+            // so manual resolution gets the same banner experience.
+            var fullText = $"{ev.Subject}\n{ev.BodyPreview}";
+            var lmRefs = Voluble.PermitDesk.Web.Mail.LantmaterietRefExtractor.Extract(fullText);
+            if (lmRefs.Count > 0 && string.IsNullOrEmpty(caseEntity.LantmaterietReferenceNumber))
+                caseEntity.LantmaterietReferenceNumber = lmRefs[0];
+
+            if (classification == MailClassification.UploadLinkReceived)
+            {
+                var urls = Voluble.PermitDesk.Web.Mail.UploadLinkExtractor.Extract(fullText);
+                if (urls.Count > 0 && string.IsNullOrEmpty(caseEntity.UploadLink))
+                {
+                    caseEntity.UploadLink = urls[0];
+                    caseEntity.UploadLinkReceivedAt = ev.ReceivedAt;
+                }
+            }
+
             // Re-load the inbound mail so we can render the PDF. Source path stayed
             // in the body/from/subject anyway, but we need the raw file for fidelity.
             InboundMail? inbound = null;

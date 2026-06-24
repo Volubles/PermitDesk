@@ -25,6 +25,23 @@ public class CaseMatcher(IDbContextFactory<PermitDeskDbContext> dbFactory) : ICa
                 return new MatchResult(match.Id, MailMatchConfidence.HighReference);
         }
 
+        // Secondary: Lantmäteriet ärendenummer (LMYYYY/NNNNNN). Set on the case
+        // after the first UploadLinkReceived mail; subsequent decision mails
+        // sometimes carry only this ref, not the broker's FBO ref.
+        var lmRefs = LantmaterietRefExtractor.Extract(combined);
+        if (lmRefs.Count > 0)
+        {
+            var match = await db.Cases
+                .AsNoTracking()
+                .Where(c => c.LantmaterietReferenceNumber != null
+                         && lmRefs.Contains(c.LantmaterietReferenceNumber))
+                .Select(c => new { c.Id })
+                .FirstOrDefaultAsync(ct);
+
+            if (match is not null)
+                return new MatchResult(match.Id, MailMatchConfidence.HighReference);
+        }
+
         // Fallback: address substring match.
         var haystack = combined.ToLowerInvariant();
         var addresses = await db.Cases

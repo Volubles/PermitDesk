@@ -14,6 +14,11 @@ public class Case
     public CaseStatus Status { get; set; } = CaseStatus.Draft;
     public PublicationStatus PublicationStatus { get; set; } = PublicationStatus.NotAllowed;
     public string? LantmaterietReferenceNumber { get; set; }
+
+    public string? UploadLink { get; set; }
+    public DateTimeOffset? UploadLinkReceivedAt { get; set; }
+    public DateTimeOffset? UploadLinkUsedAt { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 

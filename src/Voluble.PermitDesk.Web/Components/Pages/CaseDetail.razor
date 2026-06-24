@@ -47,6 +47,53 @@ else
             </MudGrid>
         </MudPaper>
 
+        @if (!string.IsNullOrWhiteSpace(_case.UploadLink))
+        {
+            <MudAlert Severity="@UploadSeverity" Variant="Variant.Outlined" NoIcon="false">
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Spacing="3">
+                    <MudStack Spacing="0">
+                        @if (_case.UploadLinkUsedAt is not null)
+                        {
+                            <MudText Typo="Typo.body1"><strong>Material uppladdat till Lantmäteriet</strong></MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                @_case.UploadLinkUsedAt.Value.LocalDateTime.ToString("yyyy-MM-dd HH:mm")
+                                @(string.IsNullOrWhiteSpace(_case.LantmaterietReferenceNumber)
+                                    ? ""
+                                    : $" · Lantmäteriets ärendenummer: {_case.LantmaterietReferenceNumber}")
+                            </MudText>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.body1"><strong>Lantmäteriet väntar på material</strong></MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                @if (UploadDaysLeft is int days)
+                                {
+                                    @($"Länk giltig {days} dag{(days == 1 ? "" : "ar")} till")
+                                }
+                                else
+                                {
+                                    @("Länk har gått ut")
+                                }
+                                @if (!string.IsNullOrWhiteSpace(_case.LantmaterietReferenceNumber))
+                                {
+                                    @($" · Ärendenummer: {_case.LantmaterietReferenceNumber}")
+                                }
+                            </MudText>
+                        }
+                    </MudStack>
+
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.CloudUpload"
+                               Href="@_case.UploadLink"
+                               Target="_blank"
+                               Disabled="@(_case.UploadLinkUsedAt is not null)">
+                        @(_case.UploadLinkUsedAt is null ? "Ladda upp material" : "Länken är förbrukad")
+                    </MudButton>
+                </MudStack>
+            </MudAlert>
+        }
+
         <MudGrid>
             <MudItem xs="12" md="6">
                 <MudPaper Class="pa-6" Elevation="0" Outlined="true">
@@ -197,6 +244,31 @@ else
         : _case.Files
             .Where(f => f.DeletedAt is null)
             .OrderByDescending(f => f.UploadedAt);
+
+    private const int UploadLinkValidityDays = 14;
+
+    private int? UploadDaysLeft
+    {
+        get
+        {
+            if (_case?.UploadLinkReceivedAt is not { } received) return null;
+            var elapsed = DateTimeOffset.UtcNow - received;
+            var remaining = (int)Math.Ceiling(UploadLinkValidityDays - elapsed.TotalDays);
+            return remaining;
+        }
+    }
+
+    private Severity UploadSeverity
+    {
+        get
+        {
+            if (_case?.UploadLinkUsedAt is not null) return Severity.Success;
+            var days = UploadDaysLeft ?? 0;
+            if (days <= 0) return Severity.Error;
+            if (days <= 3) return Severity.Warning;
+            return Severity.Info;
+        }
+    }
     private int _uploadingCurrent;
     private int _uploadingTotal;
     private CaseFileCategory _uploadCategory = CaseFileCategory.Material;

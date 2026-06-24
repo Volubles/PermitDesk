@@ -68,6 +68,27 @@ public class MailProcessor(
         {
             var caseEntity = await db.Cases.FirstAsync(c => c.Id == match.CaseId!.Value, ct);
 
+            // Pull side-data out of the mail and onto the case while we have it.
+            // Order matters: extract before we render the PDF so the case page
+            // can show "ärendenummer + upload link" the moment the mail lands.
+            var fullText = $"{mail.Subject}\n{mail.TextBody}";
+
+            var lmRefs = LantmaterietRefExtractor.Extract(fullText);
+            if (lmRefs.Count > 0 && string.IsNullOrEmpty(caseEntity.LantmaterietReferenceNumber))
+            {
+                caseEntity.LantmaterietReferenceNumber = lmRefs[0];
+            }
+
+            if (classification == MailClassification.UploadLinkReceived)
+            {
+                var urls = UploadLinkExtractor.Extract(fullText);
+                if (urls.Count > 0 && string.IsNullOrEmpty(caseEntity.UploadLink))
+                {
+                    caseEntity.UploadLink = urls[0];
+                    caseEntity.UploadLinkReceivedAt = mail.ReceivedAt;
+                }
+            }
+
             // Render + save the PDF
             var pdfBytes = await pdfRenderer.RenderAsync(mail, ct);
             var category = MailStatusRules.CategoryFor(classification);

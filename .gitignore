@@ -4,6 +4,11 @@ docs/
 CLAUDE.md
 .claude/
 
+# Reference dumps of external sites (used to plan Playwright selectors etc.)
+# These are heavy and not part of the project source — keep on disk only.
+lantmaterietsourcewebsites/
+Submission/
+
 # .NET
 bin/
 obj/

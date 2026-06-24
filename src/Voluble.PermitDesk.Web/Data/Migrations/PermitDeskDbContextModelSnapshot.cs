@@ -88,10 +88,22 @@ namespace Voluble.PermitDesk.Web.Data.Migrations
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("UploadLink")
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)");
+
+                    b.Property<DateTimeOffset?>("UploadLinkReceivedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("UploadLinkUsedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CaseNumber")
                         .IsUnique();
+
+                    b.HasIndex("LantmaterietReferenceNumber");
 
                     b.ToTable("Cases");
                 });
