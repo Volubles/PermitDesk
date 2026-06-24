@@ -4,6 +4,7 @@ using Voluble.PermitDesk.Web.Cases;
 using Voluble.PermitDesk.Web.Components;
 using Voluble.PermitDesk.Web.Data;
 using Voluble.PermitDesk.Web.Files;
+using Voluble.PermitDesk.Web.Mail;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,6 +28,10 @@ builder.Services.AddScoped<CaseNumberGenerator>();
 builder.Services.Configure<LocalStorageOptions>(
     builder.Configuration.GetSection(LocalStorageOptions.SectionName));
 builder.Services.AddScoped<ICaseStorage, LocalCaseStorage>();
+
+builder.Services.Configure<FakeMailInboxOptions>(
+    builder.Configuration.GetSection(FakeMailInboxOptions.SectionName));
+builder.Services.AddScoped<IMailInbox, FakeMailInbox>();
 
 var app = builder.Build();
 
