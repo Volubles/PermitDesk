@@ -32,6 +32,7 @@ builder.Services.AddScoped<ICaseStorage, LocalCaseStorage>();
 builder.Services.Configure<FakeMailInboxOptions>(
     builder.Configuration.GetSection(FakeMailInboxOptions.SectionName));
 builder.Services.AddScoped<IMailInbox, FakeMailInbox>();
+builder.Services.AddSingleton<IMailClassifier, RuleBasedMailClassifier>();
 
 var app = builder.Build();
 
