@@ -8,6 +8,7 @@ public class PermitDeskDbContext(DbContextOptions<PermitDeskDbContext> options)
 {
     public DbSet<Case> Cases => Set<Case>();
     public DbSet<CaseFile> CaseFiles => Set<CaseFile>();
+    public DbSet<MailEvent> MailEvents => Set<MailEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

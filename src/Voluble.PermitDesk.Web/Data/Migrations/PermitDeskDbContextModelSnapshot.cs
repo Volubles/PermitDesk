@@ -168,6 +168,78 @@ namespace Voluble.PermitDesk.Web.Data.Migrations
                     b.ToTable("CaseFiles");
                 });
 
+            modelBuilder.Entity("Voluble.PermitDesk.Web.Domain.MailEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("BodyPreview")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)");
+
+                    b.Property<Guid?>("CaseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Classification")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("ExternalMessageId")
+                        .IsRequired()
+                        .HasMaxLength(998)
+                        .HasColumnType("character varying(998)");
+
+                    b.Property<string>("From")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<string>("MatchConfidence")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<Guid?>("PdfFileId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("ProcessedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ProcessingError")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)");
+
+                    b.Property<string>("ProcessingStatus")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTimeOffset>("ReceivedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(998)
+                        .HasColumnType("character varying(998)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CaseId");
+
+                    b.HasIndex("ExternalMessageId")
+                        .IsUnique();
+
+                    b.HasIndex("PdfFileId");
+
+                    b.HasIndex("ProcessingStatus");
+
+                    b.HasIndex("ReceivedAt");
+
+                    b.ToTable("MailEvents");
+                });
+
             modelBuilder.Entity("Voluble.PermitDesk.Web.Domain.CaseFile", b =>
                 {
                     b.HasOne("Voluble.PermitDesk.Web.Domain.Case", "Case")
@@ -177,6 +249,23 @@ namespace Voluble.PermitDesk.Web.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Case");
+                });
+
+            modelBuilder.Entity("Voluble.PermitDesk.Web.Domain.MailEvent", b =>
+                {
+                    b.HasOne("Voluble.PermitDesk.Web.Domain.Case", "Case")
+                        .WithMany()
+                        .HasForeignKey("CaseId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Voluble.PermitDesk.Web.Domain.CaseFile", "PdfFile")
+                        .WithMany()
+                        .HasForeignKey("PdfFileId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Case");
+
+                    b.Navigation("PdfFile");
                 });
 
             modelBuilder.Entity("Voluble.PermitDesk.Web.Domain.Case", b =>
