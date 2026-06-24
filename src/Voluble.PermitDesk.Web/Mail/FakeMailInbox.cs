@@ -61,9 +61,14 @@ public class FakeMailInbox(
         var subject = message.Subject ?? string.Empty;
         var textBody = message.TextBody ?? message.HtmlBody ?? string.Empty;
         var htmlBody = message.HtmlBody;
-        var receivedAt = message.Date == DateTimeOffset.MinValue
-            ? File.GetCreationTimeUtc(path)
+        // Normalise to UTC. Postgres timestamptz only accepts offset 0, and we
+        // want the rest of the pipeline (PDF render, DB persist, display) to
+        // work off a single timezone — UTC stored, .ToLocalDateTime() at the
+        // display boundary.
+        var receivedRaw = message.Date == DateTimeOffset.MinValue
+            ? new DateTimeOffset(File.GetCreationTimeUtc(path), TimeSpan.Zero)
             : message.Date;
+        var receivedAt = receivedRaw.ToUniversalTime();
 
         return new InboundMail(messageId, from, subject, textBody, htmlBody, receivedAt, path);
     }
