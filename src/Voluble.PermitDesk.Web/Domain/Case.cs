@@ -19,6 +19,9 @@ public class Case
     public DateTimeOffset? UploadLinkReceivedAt { get; set; }
     public DateTimeOffset? UploadLinkUsedAt { get; set; }
 
+    public DroneMaterialTypes MaterialTypes { get; set; } = DroneMaterialTypes.None;
+    public string? PurposeStatement { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 

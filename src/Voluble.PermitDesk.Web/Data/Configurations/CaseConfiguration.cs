@@ -24,6 +24,12 @@ public class CaseConfiguration : IEntityTypeConfiguration<Case>
         builder.Property(c => c.LocalFolderPath).HasMaxLength(1024);
         builder.Property(c => c.UploadLink).HasMaxLength(1024);
 
+        builder.Property(c => c.MaterialTypes)
+            .HasConversion<string>()
+            .HasMaxLength(128);
+
+        builder.Property(c => c.PurposeStatement).HasMaxLength(2048);
+
         builder.HasIndex(c => c.LantmaterietReferenceNumber);
 
         builder.Property(c => c.Status)

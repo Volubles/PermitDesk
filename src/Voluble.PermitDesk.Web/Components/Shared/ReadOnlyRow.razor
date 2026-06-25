@@ -1,0 +1,11 @@
+<MudStack Row="true" Spacing="2" Class="mb-1">
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Style="min-width: 160px;">@Label</MudText>
+    <MudText Typo="Typo.body2">
+        @(string.IsNullOrWhiteSpace(Value) ? "—" : Value)
+    </MudText>
+</MudStack>
+
+@code {
+    [Parameter] public string Label { get; set; } = string.Empty;
+    [Parameter] public string? Value { get; set; }
+}

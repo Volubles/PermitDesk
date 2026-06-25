@@ -28,9 +28,20 @@ else if (_case is null)
 else
 {
     <MudStack Spacing="4">
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-            <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/cases" />
-            <MudText Typo="Typo.h4">@_case.CaseNumber</MudText>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/cases" />
+                <MudText Typo="Typo.h4">@_case.CaseNumber</MudText>
+            </MudStack>
+            @if (CanSubmit)
+            {
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Send"
+                           Href="@($"/cases/{_case.Id}/skicka")">
+                    Skicka in ansökan
+                </MudButton>
+            }
         </MudStack>
 
         <MudPaper Class="pa-6" Elevation="0" Outlined="true">
@@ -257,6 +268,10 @@ else
             return remaining;
         }
     }
+
+    private bool CanSubmit => _case is not null
+        && string.IsNullOrEmpty(_case.LantmaterietReferenceNumber)
+        && _case.Status is CaseStatus.Draft or CaseStatus.MaterialMissing or CaseStatus.MaterialReady;
 
     private Severity UploadSeverity
     {

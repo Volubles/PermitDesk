@@ -61,6 +61,11 @@ namespace Voluble.PermitDesk.Web.Data.Migrations
                         .HasMaxLength(1024)
                         .HasColumnType("character varying(1024)");
 
+                    b.Property<string>("MaterialTypes")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
                     b.Property<string>("Municipality")
                         .IsRequired()
                         .HasMaxLength(128)
@@ -74,6 +79,10 @@ namespace Voluble.PermitDesk.Web.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
+
+                    b.Property<string>("PurposeStatement")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)");
 
                     b.Property<string>("Status")
                         .IsRequired()

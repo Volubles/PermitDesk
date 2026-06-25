@@ -1,0 +1,279 @@
+@page "/cases/{Id:guid}/skicka"
+@inject IDbContextFactory<PermitDeskDbContext> DbFactory
+@inject IOptions<ApplicantOptions> Applicant
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+@inject ILogger<Submit> Logger
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.Extensions.Options
+@using Voluble.PermitDesk.Web.Data
+@using Voluble.PermitDesk.Web.Domain
+@using Voluble.PermitDesk.Web.Lantmateriet
+
+<PageTitle>Skicka in ansökan - @(_case?.CaseNumber)</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else if (_case is null)
+{
+    <MudAlert Severity="Severity.Error">Ärendet hittades inte.</MudAlert>
+}
+else
+{
+    <MudStack Spacing="4" Style="max-width: 880px;">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="@($"/cases/{Id}")" />
+            <MudStack Spacing="0">
+                <MudText Typo="Typo.h4">Skicka in ansökan</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">@_case.CaseNumber · @_case.Title</MudText>
+            </MudStack>
+        </MudStack>
+
+        @if (string.IsNullOrWhiteSpace(_applicant.CompanyName))
+        {
+            <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
+                Sökandeuppgifter saknas. Lägg till <code>Lantmateriet:Applicant</code>-blocket i
+                <code>appsettings.Local.json</code> innan du skickar in.
+            </MudAlert>
+        }
+
+        <!-- 1. Sökande (read-only from config) -->
+        <MudPaper Class="pa-6" Elevation="0" Outlined="true">
+            <MudText Typo="Typo.h6" Class="mb-3">1. Sökande</MudText>
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <ReadOnlyRow Label="Företag" Value="@_applicant.CompanyName" />
+                    <ReadOnlyRow Label="Org.nummer" Value="@_applicant.OrganizationNumber" />
+                    <ReadOnlyRow Label="Avdelning" Value="@_applicant.Department" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <ReadOnlyRow Label="Adress" Value="@_applicant.Address" />
+                    <ReadOnlyRow Label="Postnummer / Ort" Value="@($"{_applicant.PostalCode} {_applicant.City}".Trim())" />
+                    <ReadOnlyRow Label="Land" Value="@_applicant.Country" />
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        <!-- 2. Kontaktperson -->
+        <MudPaper Class="pa-6" Elevation="0" Outlined="true">
+            <MudText Typo="Typo.h6" Class="mb-3">2. Kontaktperson</MudText>
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_model.ContactName" Label="Namn" Required="true" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_model.ContactPhone" Label="Telefon" InputType="InputType.Telephone" Required="true" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_model.ContactEmail" Label="E-post" InputType="InputType.Email" Required="true" />
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        <!-- 3. Material -->
+        <MudPaper Class="pa-6" Elevation="0" Outlined="true">
+            <MudText Typo="Typo.h6" Class="mb-3">3. Material</MudText>
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2 d-block">
+                Markera vilka typer av material som ingår i ansökan.
+            </MudText>
+            @foreach (var (type, label) in MaterialOptions)
+            {
+                <MudCheckBox T="bool"
+                             Value="@HasMaterial(type)"
+                             ValueChanged="@(v => SetMaterial(type, v))"
+                             Label="@label" />
+            }
+        </MudPaper>
+
+        <!-- 4. Ändamål -->
+        <MudPaper Class="pa-6" Elevation="0" Outlined="true">
+            <MudText Typo="Typo.h6" Class="mb-3">4. Ändamål och egen referens</MudText>
+            <MudGrid>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_model.PurposeStatement"
+                                  Label="Ändamål (beskriv kort vad materialet ska användas till)"
+                                  Variant="Variant.Outlined"
+                                  Lines="4"
+                                  Counter="2000"
+                                  MaxLength="2000"
+                                  Required="true" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <ReadOnlyRow Label="Egen referens" Value="@_case.CaseNumber" />
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        <!-- Actions -->
+        <MudPaper Class="pa-6" Elevation="0" Outlined="true">
+            <MudText Typo="Typo.h6" Class="mb-2">Skicka in</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                "Öppna formulär" sparar uppgifterna ovan, kopierar dem till urklipp och öppnar
+                Lantmäteriets formulär i en ny flik. Klistra in värdena, markera området på kartan
+                och klicka Skicka.
+            </MudText>
+
+            <MudStack Row="true" Spacing="2" Justify="Justify.FlexEnd">
+                <MudButton Variant="Variant.Text" Href="@($"/cases/{Id}")">Avbryt</MudButton>
+                <MudTooltip Text="Kommer i nästa version">
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Default"
+                               Disabled="true"
+                               StartIcon="@Icons.Material.Filled.AutoFixHigh">
+                        Skicka in via automation
+                    </MudButton>
+                </MudTooltip>
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           OnClick="OpenFormManually"
+                           Disabled="_saving"
+                           StartIcon="@Icons.Material.Filled.OpenInNew">
+                    @(_saving ? "Sparar..." : "Öppna formulär & kopiera uppgifter")
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+    </MudStack>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private Case? _case;
+    private ApplicantOptions _applicant = new();
+    private SubmitModel _model = new();
+    private bool _loading = true;
+    private bool _saving;
+
+    private const string LantmaterietFormUrl = "https://www.lantmateriet.se/sv/spridningstillstand/ansokan/";
+
+    private static readonly (DroneMaterialTypes Type, string Label)[] MaterialOptions =
+    [
+        (DroneMaterialTypes.Snedbilder, "Snedbilder (stillbilder med vyer)"),
+        (DroneMaterialTypes.Lodbilder, "Lodbilder (stillbilder rakt ovanifrån)"),
+        (DroneMaterialTypes.Video, "Video"),
+        (DroneMaterialTypes.Ortofoto, "Ortofoto"),
+        (DroneMaterialTypes.OvrigaData, "Övriga data"),
+    ];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _applicant = Applicant.Value;
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        _case = await db.Cases.AsNoTracking().FirstOrDefaultAsync(c => c.Id == Id);
+        if (_case is not null)
+        {
+            _model = SubmitModel.FromCase(_case);
+        }
+        _loading = false;
+    }
+
+    private bool HasMaterial(DroneMaterialTypes type) => _model.MaterialTypes.HasFlag(type);
+
+    private void SetMaterial(DroneMaterialTypes type, bool on)
+    {
+        if (on) _model.MaterialTypes |= type;
+        else _model.MaterialTypes &= ~type;
+    }
+
+    private async Task OpenFormManually()
+    {
+        if (_case is null) return;
+        _saving = true;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var entity = await db.Cases.FirstAsync(c => c.Id == Id);
+
+            entity.BrokerName = NullIfBlank(_model.ContactName) ?? entity.BrokerName;
+            entity.ContactPhone = NullIfBlank(_model.ContactPhone);
+            entity.ContactEmail = NullIfBlank(_model.ContactEmail);
+            entity.MaterialTypes = _model.MaterialTypes;
+            entity.PurposeStatement = NullIfBlank(_model.PurposeStatement);
+            entity.UpdatedAt = DateTimeOffset.UtcNow;
+
+            await db.SaveChangesAsync();
+
+            var payload = BuildClipboardPayload();
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", payload);
+            await JS.InvokeVoidAsync("open", LantmaterietFormUrl, "_blank");
+
+            Snackbar.Add(
+                "Uppgifter sparade och kopierade till urklipp. Klistra in i Lantmäteriets formulär.",
+                Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to prepare submission");
+            Snackbar.Add($"Kunde inte förbereda inskick: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private string BuildClipboardPayload()
+    {
+        var lines = new List<string>
+        {
+            "=== PermitDesk - Spridningstillstånd ===",
+            $"Egen referens: {_case!.CaseNumber}",
+            "",
+            "--- Sökande ---",
+            $"Företag: {_applicant.CompanyName}",
+            $"Org.nummer: {_applicant.OrganizationNumber}",
+            $"Adress: {_applicant.Address}",
+            $"Postnummer: {_applicant.PostalCode}",
+            $"Ort: {_applicant.City}",
+            $"Land: {_applicant.Country}",
+            "",
+            "--- Kontaktperson ---",
+            $"Namn: {_model.ContactName}",
+            $"E-post: {_model.ContactEmail}",
+            $"Telefon: {_model.ContactPhone}",
+            "",
+            "--- Material ---",
+            $"Typer: {DescribeMaterial(_model.MaterialTypes)}",
+            "",
+            "--- Ändamål ---",
+            _model.PurposeStatement ?? "",
+        };
+        return string.Join("\n", lines);
+    }
+
+    private static string DescribeMaterial(DroneMaterialTypes types)
+    {
+        if (types == DroneMaterialTypes.None) return "(inget valt)";
+        var picks = new List<string>();
+        if (types.HasFlag(DroneMaterialTypes.Snedbilder)) picks.Add("Snedbilder");
+        if (types.HasFlag(DroneMaterialTypes.Lodbilder)) picks.Add("Lodbilder");
+        if (types.HasFlag(DroneMaterialTypes.Video)) picks.Add("Video");
+        if (types.HasFlag(DroneMaterialTypes.Ortofoto)) picks.Add("Ortofoto");
+        if (types.HasFlag(DroneMaterialTypes.OvrigaData)) picks.Add("Övriga data");
+        return string.Join(", ", picks);
+    }
+
+    private static string? NullIfBlank(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+
+    private class SubmitModel
+    {
+        public string ContactName { get; set; } = string.Empty;
+        public string ContactPhone { get; set; } = string.Empty;
+        public string ContactEmail { get; set; } = string.Empty;
+        public DroneMaterialTypes MaterialTypes { get; set; }
+        public string? PurposeStatement { get; set; }
+
+        public static SubmitModel FromCase(Case c) => new()
+        {
+            ContactName = c.BrokerName ?? string.Empty,
+            ContactPhone = c.ContactPhone ?? string.Empty,
+            ContactEmail = c.ContactEmail ?? string.Empty,
+            MaterialTypes = c.MaterialTypes,
+            PurposeStatement = c.PurposeStatement,
+        };
+    }
+}

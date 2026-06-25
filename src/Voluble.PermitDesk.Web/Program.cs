@@ -4,6 +4,7 @@ using Voluble.PermitDesk.Web.Cases;
 using Voluble.PermitDesk.Web.Components;
 using Voluble.PermitDesk.Web.Data;
 using Voluble.PermitDesk.Web.Files;
+using Voluble.PermitDesk.Web.Lantmateriet;
 using Voluble.PermitDesk.Web.Mail;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -36,6 +37,9 @@ builder.Services.AddSingleton<IMailClassifier, RuleBasedMailClassifier>();
 builder.Services.AddScoped<ICaseMatcher, CaseMatcher>();
 builder.Services.AddSingleton<IMailPdfRenderer, PdfSharpMailRenderer>();
 builder.Services.AddScoped<IMailProcessor, MailProcessor>();
+
+builder.Services.Configure<ApplicantOptions>(
+    builder.Configuration.GetSection(ApplicantOptions.SectionName));
 
 var app = builder.Build();
 
