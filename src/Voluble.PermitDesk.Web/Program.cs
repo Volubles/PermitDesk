@@ -41,6 +41,9 @@ builder.Services.AddScoped<IMailProcessor, MailProcessor>();
 builder.Services.Configure<ApplicantOptions>(
     builder.Configuration.GetSection(ApplicantOptions.SectionName));
 
+builder.Services.AddSingleton<SubmissionSessionStore>();
+builder.Services.AddSingleton<ILantmaterietSubmitter, PlaywrightLantmaterietSubmitter>();
+
 var app = builder.Build();
 
 if (args.Length > 0 && args[0].Equals("seed", StringComparison.OrdinalIgnoreCase))

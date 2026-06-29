@@ -5,10 +5,15 @@
 @inject ISnackbar Snackbar
 @inject IJSRuntime JS
 @inject ILogger<Submit> Logger
+@inject SubmissionSessionStore SessionStore
+@inject ILantmaterietSubmitter Submitter
+@inject ICaseStorage Storage
+@implements IDisposable
 @using Microsoft.EntityFrameworkCore
 @using Microsoft.Extensions.Options
 @using Voluble.PermitDesk.Web.Data
 @using Voluble.PermitDesk.Web.Domain
+@using Voluble.PermitDesk.Web.Files
 @using Voluble.PermitDesk.Web.Lantmateriet
 
 <PageTitle>Skicka in ansökan - @(_case?.CaseNumber)</PageTitle>
@@ -110,30 +115,85 @@ else
         <!-- Actions -->
         <MudPaper Class="pa-6" Elevation="0" Outlined="true">
             <MudText Typo="Typo.h6" Class="mb-2">Skicka in</MudText>
-            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
-                "Öppna formulär" sparar uppgifterna ovan, kopierar dem till urklipp och öppnar
-                Lantmäteriets formulär i en ny flik. Klistra in värdena, markera området på kartan
-                och klicka Skicka.
-            </MudText>
 
-            <MudStack Row="true" Spacing="2" Justify="Justify.FlexEnd">
-                <MudButton Variant="Variant.Text" Href="@($"/cases/{Id}")">Avbryt</MudButton>
-                <MudTooltip Text="Kommer i nästa version">
+            @if (_session is null || _session.Step is SubmissionStep.Cancelled or SubmissionStep.Failed or SubmissionStep.Completed)
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                    Välj <strong>"Skicka in via automation"</strong> för att låta PermitDesk fylla i formuläret
+                    åt dig. Webbläsaren öppnas synligt så du kan följa med, rita kartan och bekräfta innan
+                    ansökan skickas. Använd <strong>"Öppna formulär manuellt"</strong> om du hellre vill
+                    fylla i fälten själv.
+                </MudText>
+
+                @if (_session?.Step is SubmissionStep.Completed)
+                {
+                    <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="mb-3">
+                        Ansökan inskickad. Bekräftelse sparad i 02_Ansokan/.
+                    </MudAlert>
+                }
+                else if (_session?.Step is SubmissionStep.Failed)
+                {
+                    <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mb-3">
+                        Inskickning misslyckades: @_session.ErrorMessage
+                    </MudAlert>
+                }
+                else if (_session?.Step is SubmissionStep.Cancelled)
+                {
+                    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-3">
+                        Avbruten av användaren.
+                    </MudAlert>
+                }
+
+                <MudStack Row="true" Spacing="2" Justify="Justify.FlexEnd">
+                    <MudButton Variant="Variant.Text" Href="@($"/cases/{Id}")">Avbryt</MudButton>
                     <MudButton Variant="Variant.Outlined"
                                Color="Color.Default"
-                               Disabled="true"
+                               OnClick="OpenFormManually"
+                               Disabled="_saving"
+                               StartIcon="@Icons.Material.Filled.OpenInNew">
+                        Öppna formulär manuellt
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               OnClick="StartAutomation"
+                               Disabled="_saving"
                                StartIcon="@Icons.Material.Filled.AutoFixHigh">
                         Skicka in via automation
                     </MudButton>
-                </MudTooltip>
-                <MudButton Variant="Variant.Filled"
-                           Color="Color.Primary"
-                           OnClick="OpenFormManually"
-                           Disabled="_saving"
-                           StartIcon="@Icons.Material.Filled.OpenInNew">
-                    @(_saving ? "Sparar..." : "Öppna formulär & kopiera uppgifter")
-                </MudButton>
-            </MudStack>
+                </MudStack>
+            }
+            else
+            {
+                <MudAlert Severity="@(_session.Step is SubmissionStep.AwaitingConfirmation ? Severity.Warning : Severity.Info)"
+                          Variant="Variant.Outlined"
+                          Class="mb-3">
+                    <MudStack Spacing="1">
+                        <MudText Typo="Typo.body1"><strong>@StepLabel(_session.Step)</strong></MudText>
+                        @if (!string.IsNullOrEmpty(_session.StatusMessage))
+                        {
+                            <MudText Typo="Typo.body2">@_session.StatusMessage</MudText>
+                        }
+                    </MudStack>
+                </MudAlert>
+
+                <MudStack Row="true" Spacing="2" Justify="Justify.FlexEnd">
+                    <MudButton Variant="Variant.Text"
+                               Color="Color.Error"
+                               OnClick="CancelAutomation"
+                               StartIcon="@Icons.Material.Filled.Cancel">
+                        Avbryt
+                    </MudButton>
+                    @if (_session.Step is SubmissionStep.AwaitingConfirmation)
+                    {
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Success"
+                                   OnClick="ConfirmFinalSubmit"
+                                   StartIcon="@Icons.Material.Filled.Send">
+                            Skicka in nu
+                        </MudButton>
+                    }
+                </MudStack>
+            }
         </MudPaper>
     </MudStack>
 }
@@ -146,6 +206,7 @@ else
     private SubmitModel _model = new();
     private bool _loading = true;
     private bool _saving;
+    private SubmissionSession? _session;
 
     private const string LantmaterietFormUrl = "https://www.lantmateriet.se/sv/spridningstillstand/ansokan/";
 
@@ -169,6 +230,134 @@ else
             _model = SubmitModel.FromCase(_case);
         }
         _loading = false;
+
+        // Reattach to an existing session if the broker refreshed the page mid-flow.
+        var existing = SessionStore.Get(Id);
+        if (existing is not null)
+        {
+            _session = existing;
+            _session.StateChanged += OnSessionChanged;
+        }
+    }
+
+    private async void OnSessionChanged()
+    {
+        await InvokeAsync(async () =>
+        {
+            // On completion, persist the screenshot + flip status.
+            if (_session?.Step is SubmissionStep.Completed && _session.ConfirmationScreenshot is not null)
+            {
+                await PersistConfirmationAsync(_session.ConfirmationScreenshot);
+            }
+            StateHasChanged();
+        });
+    }
+
+    private async Task PersistConfirmationAsync(byte[] pngBytes)
+    {
+        if (_case is null) return;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var entity = await db.Cases.FirstAsync(c => c.Id == Id);
+
+            await using var stream = new MemoryStream(pngBytes);
+            var fileName = $"ansokan-bekraftelse-{DateTimeOffset.UtcNow:yyyy-MM-dd-HHmmss}.png";
+            var saved = await Storage.SaveFileAsync(entity, CaseFileCategory.Application, fileName, stream);
+
+            db.CaseFiles.Add(new CaseFile
+            {
+                Id = Guid.NewGuid(),
+                CaseId = entity.Id,
+                FileName = Path.GetFileName(saved.LocalPath),
+                FileExtension = ".png",
+                ContentType = "image/png",
+                SizeBytes = saved.SizeBytes,
+                Category = CaseFileCategory.Application,
+                StorageProvider = "local",
+                LocalPath = saved.LocalPath,
+                UploadedAt = DateTimeOffset.UtcNow,
+                UploadedBy = "playwright-submitter",
+            });
+
+            entity.Status = CaseStatus.ApplicationSubmitted;
+            entity.UpdatedAt = DateTimeOffset.UtcNow;
+
+            await db.SaveChangesAsync();
+
+            Snackbar.Add("Ansökan inskickad och bekräftelse sparad.", Severity.Success);
+
+            SessionStore.End(Id);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to persist submission confirmation for case {CaseId}", Id);
+            Snackbar.Add($"Ansökan inskickad men kunde inte spara bekräftelse: {ex.Message}", Severity.Warning);
+        }
+    }
+
+    private async Task StartAutomation()
+    {
+        if (_case is null) return;
+        await SaveModelAsync();
+
+        var ctx = new SubmissionContext(
+            CaseId: Id,
+            CaseNumber: _case.CaseNumber,
+            ContactName: _model.ContactName,
+            ContactEmail: _model.ContactEmail,
+            ContactPhone: _model.ContactPhone,
+            MaterialTypes: _model.MaterialTypes,
+            PurposeStatement: _model.PurposeStatement ?? string.Empty,
+            Applicant: _applicant);
+
+        _session = SessionStore.Start(ctx);
+        _session.StateChanged += OnSessionChanged;
+
+        _ = Task.Run(() => Submitter.RunAsync(_session));
+    }
+
+    private void ConfirmFinalSubmit() => _session?.Confirm();
+
+    private void CancelAutomation()
+    {
+        _session?.Cancel();
+        Snackbar.Add("Inskickning avbruten.", Severity.Info);
+    }
+
+    private static string StepLabel(SubmissionStep step) => step switch
+    {
+        SubmissionStep.Starting => "Initialiserar...",
+        SubmissionStep.LaunchingBrowser => "Startar webbläsare...",
+        SubmissionStep.FillingForm => "Fyller i formuläret...",
+        SubmissionStep.AwaitingMap => "Väntar på kartritning",
+        SubmissionStep.AwaitingConfirmation => "Klar att skicka — bekräfta",
+        SubmissionStep.Submitting => "Skickar...",
+        SubmissionStep.Completed => "Klar",
+        SubmissionStep.Cancelled => "Avbruten",
+        SubmissionStep.Failed => "Misslyckad",
+        _ => step.ToString(),
+    };
+
+    private async Task SaveModelAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var entity = await db.Cases.FirstAsync(c => c.Id == Id);
+        entity.BrokerName = NullIfBlank(_model.ContactName) ?? entity.BrokerName;
+        entity.ContactPhone = NullIfBlank(_model.ContactPhone);
+        entity.ContactEmail = NullIfBlank(_model.ContactEmail);
+        entity.MaterialTypes = _model.MaterialTypes;
+        entity.PurposeStatement = NullIfBlank(_model.PurposeStatement);
+        entity.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync();
+    }
+
+    public void Dispose()
+    {
+        if (_session is not null)
+        {
+            _session.StateChanged -= OnSessionChanged;
+        }
     }
 
     private bool HasMaterial(DroneMaterialTypes type) => _model.MaterialTypes.HasFlag(type);
@@ -185,17 +374,7 @@ else
         _saving = true;
         try
         {
-            await using var db = await DbFactory.CreateDbContextAsync();
-            var entity = await db.Cases.FirstAsync(c => c.Id == Id);
-
-            entity.BrokerName = NullIfBlank(_model.ContactName) ?? entity.BrokerName;
-            entity.ContactPhone = NullIfBlank(_model.ContactPhone);
-            entity.ContactEmail = NullIfBlank(_model.ContactEmail);
-            entity.MaterialTypes = _model.MaterialTypes;
-            entity.PurposeStatement = NullIfBlank(_model.PurposeStatement);
-            entity.UpdatedAt = DateTimeOffset.UtcNow;
-
-            await db.SaveChangesAsync();
+            await SaveModelAsync();
 
             var payload = BuildClipboardPayload();
             await JS.InvokeVoidAsync("navigator.clipboard.writeText", payload);

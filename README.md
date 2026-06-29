@@ -70,6 +70,16 @@ Requires .NET 10 SDK and a running PostgreSQL.
 
    Idempotent — re-running skips cases already on disk.
 
+5. (One-time) Install Playwright's browser for the Lantmäteriet submission flow:
+
+   ```sh
+   pwsh src/Voluble.PermitDesk.Web/bin/Debug/net10.0/playwright.ps1 install chromium
+   ```
+
+   Downloads ~150 MB of Chromium into `%LOCALAPPDATA%\ms-playwright\`.
+   Required before the "Skicka in via automation" button works. Skip if you
+   only use the manual handoff path.
+
 ## Repo conventions
 
 - Small, focused commits — one logical change per commit
